@@ -18,21 +18,26 @@ double Benchmarker::elapsed(clock_t begin, clock_t end) {
 }
 
 void Benchmarker::run() {
-    int n = 100;
-    int k = 500;
+    vector<int> ns {1000};
+    vector<int> ks {1000, 5000, 10000};
     qsrand(0);
-    FastMatcher matcher(n);
-    vector<Point> centers = randomCenters(n, k);
 
-    const int cutoffs[10] = {0, 100, 1000, 10000, 100000, 500000, 1000000, 1500000, 2000000, 10000000};
-    cout << "n = " << n << " k = " << k << " test" << endl;
-    for (int cutoff : cutoffs) {
-        matcher.setEarlyCutoff(cutoff);
-        clock_t begin = clock();
-        vector<vector<int>> plane =
-                matcher.query(centers);
-        clock_t end = clock();
-        cout << "Cutoff: " << cutoff << " time: " << elapsed(begin, end) << endl;
-        if (not is_stable(plane, centers)) {cout << "Error: result not stable" << endl; }
+    vector<int> cutoffs {0, -1};
+    for (int i = 0; i < (int)ns.size(); i++) {
+        int n = ns[i];
+        FastMatcher matcher(n);
+        for (int k : ks) {
+            vector<Point> centers = randomCenters(n, k);
+            cout << "n = " << n << " k = " << k << " test" << endl;
+            for (int cutoff : cutoffs) {
+                matcher.setEarlyCutoff(cutoff);
+                clock_t begin = clock();
+                vector<vector<int>> plane =
+                        matcher.query(centers);
+                clock_t end = clock();
+                cout << "Cutoff: " << cutoff << " time: " << elapsed(begin, end) << endl;
+                if (not is_stable(plane, centers)) {cout << "Error: result not stable" << endl; }
+            }
+        }
     }
 }

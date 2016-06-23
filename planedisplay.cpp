@@ -3,6 +3,9 @@
 #include "fastmatcher.h"
 #include <iostream>
 #include <QtWidgets>
+#include <string>
+#include <sstream>
+#include <iomanip>
 
 PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
     n(n), matcher(n)
@@ -14,6 +17,10 @@ PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
 
     centers = randomCenters(n, k);
     plane = matcher.query(centers);
+
+    shouldPrintCentroids = true;
+    shouldPrintStatistics = true;
+    selected_cid = -1;
 }
 
 
@@ -85,24 +92,71 @@ void PlaneDisplay::removeCenter(int center_id)
     printScene();
 }
 
-void PlaneDisplay::toggleCenter(QPoint qp) {
-    Point p = QPointToPoint(qp);
-    if (p.i < 0 or p.i >= n or p.j < 0 or p.j >= n)
-        return;
+Point PlaneDisplay::randomAdjacentPoint(const Point& p) {
+    int dir = qrand()%2;
+    int offset = dir == 0? 1 : -1;
+    int coord = qrand()%2;
+    if (coord == 0) return Point(p.i+offset, p.j);
+    return Point(p.i, p.j+offset);
+}
 
-    for (int i = 0; i < (int)centers.size(); i++) {
-        if (p == centers[i]) {
-            removeCenter(i);
-            return;
+void PlaneDisplay::moveCentersToCentroids()
+{
+    int k = centers.size();
+    vector<Point> ctroids = centroids(plane, k);
+    centers = vector<Point> (0);
+    for (Point p : ctroids) {
+        while (contains(centers, p)) {
+            p = randomAdjacentPoint(p);
         }
+        centers.push_back(p);
     }
-    addCenter(p);
+    printScene();
+}
+
+int PlaneDisplay::selectedCenter(QPoint qp) {
+    for (int i = 0; i < (int)centers.size(); i++) {
+        QPoint cqp = point2QPoint(centers[i]);
+        double dis = Point(qp.x(), qp.y()).dist(Point(cqp.x(), cqp.y()));
+        if (dis <= CENTER_RAD) return i;
+    }
+    return -1;
+}
+
+void PlaneDisplay::toggleCenter(QPoint qp) {
+    int c_id = selectedCenter(qp);
+    if (c_id == -1) {
+        Point p = QPointToPoint(qp);
+        if (p.i < 0 or p.i >= n or p.j < 0 or p.j >= n)
+            return;
+        addCenter(p);
+    } else {
+        removeCenter(c_id);
+    }
+}
+
+void PlaneDisplay::moveCenter(int c_id, Point p) {
+    if (contains(centers, p)) return;
+    centers[c_id] = p;
+    printScene();
 }
 
 bool PlaneDisplay::saveImage(const QString &fileName, const char *fileFormat)
 {
     QImage visibleImage = image;
     return visibleImage.save(fileName, fileFormat);
+}
+
+void PlaneDisplay::setShowCentroids(bool show)
+{
+     shouldPrintCentroids = show;
+     refreshScene();
+}
+
+void PlaneDisplay::setShowStatistics(bool show)
+{
+    shouldPrintStatistics = show;
+    refreshScene();
 }
 
 void PlaneDisplay::printScene()
@@ -117,6 +171,8 @@ void PlaneDisplay::refreshScene()
     printRegions();
     printGrid();
     printCenters();
+    if (shouldPrintCentroids) printCentroids();
+    if (shouldPrintStatistics) printStatistics();
     update();
 }
 
@@ -145,6 +201,68 @@ QColor PlaneDisplay::centerColor(int centerId) {
     return region_colors[centerId%region_colors.size()];
 }
 
+int PlaneDisplay::numLines(const string& s) {
+    int numlines = 0;
+    for (char c : s) {
+        if (c == '\n') {
+            numlines++;
+        }
+    }
+    return numlines;
+}
+
+string PlaneDisplay::longestLine(const string& s) {
+    int width = 0;
+    int maxwidth = 0;
+    int linestartpos = 0;
+    int longestlinestartpos = 0;
+    int index = 0;
+    for (char c : s) {
+        if (c == '\n') {
+            if (width > maxwidth) {
+                maxwidth = width;
+                longestlinestartpos = linestartpos;
+            }
+            width = 0;
+            linestartpos = index+1;
+        } else {
+            width++;
+        }
+        index++;
+    }
+    return s.substr(longestlinestartpos, maxwidth);
+}
+
+void PlaneDisplay::printStatistics() {
+    QPainter painter(&image);
+    painter.setPen(QColor(qRgb(0, 0, 0)));
+
+    stringstream ss;
+    ss << setprecision(3) << fixed;
+    ss <<"Grid size: "<<n<<endl;
+    ss <<"Num centers: "<<centers.size()<<endl;
+    double d1 = avgDistPointCenter(plane, centers);
+    ss <<"Point-center dist: "<<d1<<endl;
+    double d2 = avgDistCenterCentroid(plane, centers);
+    ss <<"Center-centroid dist: "<<d2<<endl;
+
+    string s = ss.str();
+    QString qs = QString::fromStdString(s);
+
+    QFont font("Consolas", 14);
+    painter.setFont(font);
+
+    QFontMetrics fm(font);
+    int sheight = fm.height()*numLines(s);
+    int swidth = 5+fm.width(QString::fromStdString(longestLine(s)));
+    QRect rect(QPoint(20, 20), QSize(swidth, sheight));
+
+    painter.fillRect(rect, QBrush(QColor(255, 255, 255, 220)));
+    painter.drawRect(rect);
+    rect = QRect(QPoint(22, 20), QSize(swidth, sheight));
+    painter.drawText(rect, qs);
+
+}
 
 void PlaneDisplay::printGrid()
 {
@@ -171,6 +289,20 @@ void PlaneDisplay::printCenters()
     }
 }
 
+void PlaneDisplay::printCentroids()
+{
+    QPainter painter(&image);
+    int k = centers.size();
+    vector<Point> centrs = centroids(plane, k);
+    for (int i = 0; i < k; i++) {
+        QPoint qp = point2QPoint(centrs[i]);
+        painter.setPen(Qt::white);
+        painter.setBrush(centerColor(i));
+        painter.drawEllipse(qp, CENTROID_RAD, CENTROID_RAD);
+
+    }
+}
+
 void PlaneDisplay::updateRegions() {
     plane = matcher.query(centers);
 }
@@ -193,23 +325,32 @@ void PlaneDisplay::printRegions()
 void PlaneDisplay::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
+        selected_cid = selectedCenter(event->pos());
         lastPoint = event->pos();
         moving = true;
+        moved = false;
     }
 }
 
 void PlaneDisplay::mouseMoveEvent(QMouseEvent *event)
 {
     if ((event->buttons() & Qt::LeftButton) && moving) {
-
+        if (selected_cid != -1) {
+            moveCenter(selected_cid, QPointToPoint(event->pos()));
+            moved = true;
+        }
     }
 }
 
 void PlaneDisplay::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton && moving) {
+        if (not moved) {
+            toggleCenter(event->pos());
+        }
+        selected_cid = -1;
         moving = false;
-        toggleCenter(event->pos());
+        moved = false;
     }
 }
 

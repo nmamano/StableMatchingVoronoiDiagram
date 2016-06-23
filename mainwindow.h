@@ -20,7 +20,9 @@ private slots:
     void about();
     void changeSize();
     void changeCenters();
-
+    void moveCentersToCentroids();
+    void showCentroids(bool show);
+    void showStatistics(bool show);
 private:
     void createActions();
     void createMenus();
@@ -30,15 +32,18 @@ private:
     QMenu *saveAsMenu;
     QMenu *fileMenu;
     QMenu *optionMenu;
+    QMenu *viewMenu;
     QMenu *helpMenu;
 
     QList<QAction*> saveAsActs;
     QAction *exitAct;
     QAction *aboutAct;
-    QAction *aboutQtAct;
 
+    QAction *moveCentersToCentroidsAct;
     QAction *gridSizeAct;
     QAction *centersAct;
+    QAction *showCentroidsAct;
+    QAction *showStatisticsAct;
 };
 
 #endif // MAINWINDOW_H

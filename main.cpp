@@ -19,11 +19,6 @@ int main(int argc, char *argv[])
 
 /* To do:
  * Bicolor annuli region drawing
- * Center dragging
- * Add k-means iteration buttons
- * Display grid size, number of centers, and statistics
- * optimize printscene
- * optimize resize
- * highlight centroids
  * comment code
+ * document
  */

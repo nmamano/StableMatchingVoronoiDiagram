@@ -13,7 +13,7 @@ vector<vector<int>> Matcher::assignPoints(int n, const vector<Point>& centers) {
     vector<vector<int>> plane(n, vector<int> (n, -1));
 
     //indicates how many sites each center still needs to complete its region
-    vector<int> quotas = center_quotas(n, k);
+    vector<int> quotas = centerQuotas(n, k);
 
     int num_assigned_points = 0;
     for (const Link link : L) {

@@ -37,10 +37,20 @@ struct Link {
 };
 
 bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers);
-vector<int> center_quotas(int n, int k);
+vector<int> centerQuotas(int n, int k);
+
+vector<Point> centroids(const vector<vector<int>>& plane, int k);
+vector<vector<Point>> pointsByCenter(const vector<vector<int>>& plane,
+        int k);
+Point centroid(const vector<Point>& points);
 
 vector<Point> randomCenters(int n, int k);
 bool contains(const vector<Point>& ps, const Point& p);
-Point random_point(int n);
+Point randomPoint(int n);
+
+
+double avgDistPointCenter(const vector<vector<int>>& plane, const vector<Point>& centers);
+double avgDistCenterCentroid(const vector<vector<int>>& plane, const vector<Point>& centers);
+
 
 #endif // MATCHINGUTILS_H

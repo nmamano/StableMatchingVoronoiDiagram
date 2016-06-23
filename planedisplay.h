@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <vector>
+#include <iostream>
 #include "matchingutils.h"
 #include "fastmatcher.h"
 
@@ -17,10 +18,13 @@ public:
     void setRandomCenters(int numCenters);
     void addCenter(const Point& newCenter);
     void removeCenter(int center_id);
+    void moveCentersToCentroids();
 
     bool saveImage(const QString &fileName, const char *fileFormat);
 
-    int getGridSize() { return n; }
+    void setShowCentroids(bool show);
+    void setShowStatistics(bool show);
+        int getGridSize() { return n; }
     int getNumCenters() { return centers.size(); }
     int numPoints();
 
@@ -42,6 +46,7 @@ private:
     QColor centerColor(int centerId);
 
     const int CENTER_RAD = 5;
+    const int CENTROID_RAD = 3;
     const int POINT_RAD = 1;
     QColor POINT_COLOR;
 
@@ -61,11 +66,25 @@ private:
     void updateRegions();
 
     bool moving;
+    bool moved;
     QImage image;
     QPoint lastPoint;
 
+    bool shouldPrintCentroids;
+    bool shouldPrintStatistics;
+
     void toggleCenter(QPoint qp);
 
+    void printCentroids();
+    Point randomAdjacentPoint(const Point &p);
+    int selectedCenter(QPoint qp);
+
+    int selected_cid;
+
+    void moveCenter(int c_id, Point p);
+    void printStatistics();
+    int numLines(const string &s);
+    string longestLine(const string &s);
 signals:
 
 };

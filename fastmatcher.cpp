@@ -11,79 +11,89 @@ FastMatcher::FastMatcher(int n): n(n)
     buildP();
 }
 
-void FastMatcher::buildP() {
-    P = vector<Point>(n*n);
-    int index = 0;
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            P[index] = Point(i,j);
-            index++;
-        }
-    }
-    sort(P.begin(), P.end());
-}
-
 void FastMatcher::updateP(int newN)
 {
     n = newN;
     earlyCutoff = -1;
-    if (P.size() < n*n) buildP();
+    if ((int)P.size() < n*(n+1)/2) buildP();
 }
 
-vector<vector<int>> FastMatcher::query(const vector<Point> &centers)
+void FastMatcher::buildP() {
+    P = vector<Point>(n*(n+1)/2);
+    int index = 0;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j <= i; j++) {
+            P[index] = Point(i,j);
+            index++;
+        }
+    }
+    if (index != (int)P.size()) cout<<"Error: missing points"<<endl;
+    sort(P.begin(), P.end());
+}
+
+int FastMatcher::tailoredCutoff(int k) const {
+    return 600*cbrt(n*n*k);
+}
+
+void FastMatcher::innerLoop(int pi, int pj,
+        const vector<int>& c_ids, const vector<Point>& centers,
+        vector<vector<int>>& plane, vector<int>& quotas) const {
+    for (int c_id : c_ids) {
+        int i = pi + centers[c_id].i;
+        int j = pj + centers[c_id].j;
+        if (i>=0 && j>=0 && i<n && j<n &&
+                plane[i][j] == -1 && quotas[c_id]>0) {
+            plane[i][j] = c_id;
+            quotas[c_id]--;
+        }
+    }
+}
+
+vector<vector<int>> FastMatcher::query(const vector<Point> &centers) const
 {
     int k = centers.size();
-    bool autoset_early_cutoff = earlyCutoff == -1;
-    if (autoset_early_cutoff) setEarlyCutoff(600*cbrt(n*n*k));
+
+    int cutoff = earlyCutoff == -1 ? tailoredCutoff(k) : earlyCutoff;
 
     vector<vector<int>> plane(n, vector<int> (n, -1));
-    vector<int> quotas = center_quotas(n, k);
+    vector<int> quotas = centerQuotas(n, k);
 
-    vector<int> remaining_center_ids(k);
-    for (int i = 0; i < k; i++) remaining_center_ids[i] = i;
-
-    const int itransform[4] = {1, -1, 1, -1};
-    const int jtransform[4] = {1, 1, -1, -1};
+    vector<int> rem_c_ids(k);
+    for (int i = 0; i < k; i++) rem_c_ids[i] = i;
 
     int iter = 0;
-    for (const Point& p :P) {
-        for (int r = 0; r < 4; r++) {
-            int ii = p.i * itransform[r];
-            int jj = p.j * jtransform[r];
-            for (int c_id : remaining_center_ids) {
-                int i = ii + centers[c_id].i;
-                int j = jj + centers[c_id].j;
-                if (i>=0 && j>=0 && i<n && j<n &&
-                        plane[i][j] == -1 && quotas[c_id]>0) {
-                    plane[i][j] = c_id;
-                    quotas[c_id]--;
-                }
-            }
-        }
-        if (iter%128 == 0) { //update data structures
+    for (const Point& p : P) {
+        innerLoop(p.i, p.j, rem_c_ids, centers, plane, quotas);
+        innerLoop(p.j, p.i, rem_c_ids, centers, plane, quotas);
+        innerLoop(p.i, -p.j, rem_c_ids, centers, plane, quotas);
+        innerLoop(p.j, -p.i, rem_c_ids, centers, plane, quotas);
+        innerLoop(-p.i, p.j, rem_c_ids, centers, plane, quotas);
+        innerLoop(-p.j, p.i, rem_c_ids, centers, plane, quotas);
+        innerLoop(-p.i, -p.j, rem_c_ids, centers, plane, quotas);
+        innerLoop(-p.j, -p.i, rem_c_ids, centers, plane, quotas);
+
+        if (iter%64 == 0) { //update data structs from time to time
             vector<int> new_ids(0);
             int num_rem_points = 0;
-            for (int c_id : remaining_center_ids) {
+            for (int c_id : rem_c_ids) {
                 if (quotas[c_id] > 0) {
                     new_ids.push_back(c_id);
                     num_rem_points += quotas[c_id];
                 }
             }
-            remaining_center_ids = move(new_ids);
+            rem_c_ids = move(new_ids);
             if (num_rem_points == 0) break;
 
-            int rem_centers = remaining_center_ids.size();
+            int rem_centers = rem_c_ids.size();
             int rem_links = rem_centers * num_rem_points;
-            if (rem_links < earlyCutoff) {
+            if (rem_links < cutoff) {
                 bruteForceMatching(plane, centers, quotas,
-                                    num_rem_points, rem_centers);
+                        num_rem_points, rem_centers);
                 break;
             }
         }
         iter++;
     }
-
-    if (autoset_early_cutoff) setEarlyCutoff(-1);
 
     return plane;
 }
@@ -91,7 +101,7 @@ vector<vector<int>> FastMatcher::query(const vector<Point> &centers)
 
 void FastMatcher::bruteForceMatching(vector<vector<int>>& plane,
         const vector<Point>& centers, vector<int>& quotas,
-        int num_rem_points, int num_rem_centers) {
+        int num_rem_points, int num_rem_centers) const {
 
     vector<Link> L = sortedRemLinks(plane, centers, quotas, num_rem_points, num_rem_centers);
     for (const Link& link : L) {
@@ -110,7 +120,7 @@ void FastMatcher::bruteForceMatching(vector<vector<int>>& plane,
 
 vector<Link> FastMatcher::sortedRemLinks(const vector<vector<int>>& plane,
         const std::vector<Point>& centers, const vector<int>& quotas,
-        int num_rem_points, int num_rem_centers) {
+        int num_rem_points, int num_rem_centers) const {
 
     vector<int> rem_points(2*num_rem_points);
 
