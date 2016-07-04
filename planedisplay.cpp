@@ -1,6 +1,4 @@
 #include "planedisplay.h"
-#include "matchingutils.h"
-#include "fastmatcher.h"
 #include <iostream>
 #include <QtWidgets>
 #include <string>
@@ -13,6 +11,7 @@ PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
     setAttribute(Qt::WA_StaticContents);
     moving = false;
     POINT_COLOR = QColor(qRgb(0, 0, 0));
+    EMPTY_COLOR = QColor(qRgb(255, 255, 255));
     initRegionColors();
 
     centers = randomCenters(n, k);
@@ -20,7 +19,11 @@ PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
 
     shouldPrintCentroids = true;
     shouldPrintStatistics = true;
+    shouldPrintIdealPerimeter = true;
+
     selected_cid = -1;
+
+    constrIter = -1;
 }
 
 
@@ -53,11 +56,12 @@ void PlaneDisplay::initRegionColors() {
     region_colors.push_back(QColor(qRgb(255,80,5)));
 }
 
-void PlaneDisplay::setGridSize(int newSize)
+void PlaneDisplay::setGridSize(int newN)
 {
-    if (newSize < 2) return;
-    matcher.updateP(newSize);
-    n = newSize;
+    if (newN == n) return;
+    if (newN < 2) return;
+    matcher.setN(newN);
+    n = newN;
     std::vector<Point> newCenters(0);
     for (const Point& c : centers) {
         if (c.i < n and c.j < n)
@@ -67,10 +71,25 @@ void PlaneDisplay::setGridSize(int newSize)
     printScene();
 }
 
-void PlaneDisplay::setCenters(const std::vector<Point> &newCenters)
+void PlaneDisplay::setDistMetric(int metric)
 {
-    centers = newCenters;
+    if (metric != 1 and metric != 2 and metric != -1) {
+        return;
+    }
+    matcher.setMetric(metric);
     printScene();
+}
+
+void PlaneDisplay::showConstrStep()
+{
+    if (constrIter == -1 or
+            numAssignedPoints(constrPlane) == n*n) {
+        constrPlane = vector<vector<int>> (n, vector<int> (n, -1));
+        constrIter = 0;
+    }
+    matcher.step(constrPlane, centers, constrIter);
+    constrIter++;
+    printConstrScene();
 }
 
 void PlaneDisplay::setRandomCenters(int numCenters) {
@@ -117,7 +136,7 @@ void PlaneDisplay::moveCentersToCentroids()
 int PlaneDisplay::selectedCenter(QPoint qp) {
     for (int i = 0; i < (int)centers.size(); i++) {
         QPoint cqp = point2QPoint(centers[i]);
-        double dis = Point(qp.x(), qp.y()).dist(Point(cqp.x(), cqp.y()));
+        double dis = Point(qp.x(), qp.y()).distL2(Point(cqp.x(), cqp.y()));
         if (dis <= CENTER_RAD) return i;
     }
     return -1;
@@ -137,6 +156,8 @@ void PlaneDisplay::toggleCenter(QPoint qp) {
 
 void PlaneDisplay::moveCenter(int c_id, Point p) {
     if (contains(centers, p)) return;
+    if (p.i < 0 or p.i >= n or p.j < 0 or p.j >= n)
+        return;
     centers[c_id] = p;
     printScene();
 }
@@ -159,17 +180,33 @@ void PlaneDisplay::setShowStatistics(bool show)
     refreshScene();
 }
 
+void PlaneDisplay::setShowIdealPerimeter(bool show)
+{
+    shouldPrintIdealPerimeter = show;
+    refreshScene();
+}
+
 void PlaneDisplay::printScene()
 {
+    constrIter = -1;
     updateRegions();
     refreshScene();
+}
+
+void PlaneDisplay::printConstrScene() {
+    image.fill(qRgb(255, 255, 240));
+    printRegions(constrPlane);
+    if (n <= 50) printGrid();
+    printCenters();
+    update();
 }
 
 void PlaneDisplay::refreshScene()
 {
     image.fill(qRgb(255, 255, 240));
-    printRegions();
-    printGrid();
+    printRegions(plane);
+    if (n <= 50) printGrid();
+    if (shouldPrintIdealPerimeter) printIdealPerimeters();
     printCenters();
     if (shouldPrintCentroids) printCentroids();
     if (shouldPrintStatistics) printStatistics();
@@ -241,9 +278,10 @@ void PlaneDisplay::printStatistics() {
     ss << setprecision(3) << fixed;
     ss <<"Grid size: "<<n<<endl;
     ss <<"Num centers: "<<centers.size()<<endl;
-    double d1 = avgDistPointCenter(plane, centers);
+    int metric = matcher.getMetric();
+    double d1 = avgDistPointCenter(plane, centers, metric);
     ss <<"Point-center dist: "<<d1<<endl;
-    double d2 = avgDistCenterCentroid(plane, centers);
+    double d2 = avgDistCenterCentroid(plane, centers, metric);
     ss <<"Center-centroid dist: "<<d2<<endl;
 
     string s = ss.str();
@@ -266,7 +304,6 @@ void PlaneDisplay::printStatistics() {
 
 void PlaneDisplay::printGrid()
 {
-    if (n > 50) return;
     QPainter painter(&image);
     painter.setPen(POINT_COLOR);
     for (int i = 0; i < n; i++) {
@@ -303,19 +340,80 @@ void PlaneDisplay::printCentroids()
     }
 }
 
+double PlaneDisplay::areaToRad(double area) {
+    double pi = 4*atan(1);
+    return sqrt(area/pi);
+}
+
+double PlaneDisplay::areaToSquareDiag(double area) {
+    double side = sqrt(area);
+    return side*sqrt(2);
+}
+
+void PlaneDisplay::printIdealPerimeters() {
+    QPainter painter(&image);
+    int k = centers.size();
+    vector<int> quotas = centerQuotas(n, k);
+    for (int c_id = 0; c_id < k; c_id++) {
+        Point c = centers[c_id];
+        QPoint qc = point2QPoint(c);
+        double area = quotas[c_id];
+        if (matcher.getMetric() == 2) {
+            double rad = areaToRad(area);
+            int qRad = round(((double)rad/n)*image.size().width());
+            painter.setPen(QPen(POINT_COLOR, 2));
+            painter.drawEllipse(qc, qRad-2, qRad-2);
+            painter.drawEllipse(qc, qRad+2, qRad+2);
+            painter.setPen(QPen(centerColor(c_id), 2));
+            painter.drawEllipse(qc, qRad, qRad);
+        } else if (matcher.getMetric() == 1) {
+            double rad = areaToSquareDiag(area)/2;
+            int qRad = round(((double)rad/n)*image.size().width());
+            QVector<QPoint> points;
+            points.push_back(QPoint(qc.x()-qRad, qc.y()));
+            points.push_back(QPoint(qc.x(), qc.y()-qRad));
+            points.push_back(QPoint(qc.x()+qRad, qc.y()));
+            points.push_back(QPoint(qc.x(), qc.y()+qRad));
+            QPolygon pol(points);
+            painter.setPen(QPen(POINT_COLOR, 2));
+            pol[0].rx()-=2; pol[1].ry()-=2; pol[2].rx()+=2; pol[3].ry()+=2;
+            painter.drawConvexPolygon(pol);
+            pol[0].rx()+=4; pol[1].ry()+=4; pol[2].rx()-=4; pol[3].ry()-=4;
+            painter.drawConvexPolygon(pol);
+            painter.setPen(QPen(centerColor(c_id), 2));
+            pol[0].rx()-=2; pol[1].ry()-=2; pol[2].rx()+=2; pol[3].ry()+=2;
+            painter.drawConvexPolygon(pol);
+        } else if (matcher.getMetric() == -1) {
+            double side = sqrt(area);
+            int qSide = round(((double)side/n)*image.size().width());
+            int x = qc.x()-qSide/2, y = qc.y()-qSide/2;
+            painter.setPen(QPen(POINT_COLOR, 2));
+            painter.drawRect(x-2, y-2, qSide+4, qSide+4);
+            painter.drawRect(x+2, y+2, qSide-4, qSide-4);
+            painter.setPen(QPen(centerColor(c_id), 2));
+            painter.drawRect(x, y, qSide, qSide);
+        }
+    }
+}
+
 void PlaneDisplay::updateRegions() {
     plane = matcher.query(centers);
 }
 
-void PlaneDisplay::printRegions()
+void PlaneDisplay::printRegions(const vector<vector<int>>& curr_plane)
 {
     QPainter painter(&image);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             QPoint qp = point2QPoint(Point(i,j));
-            int center_id = plane[i][j];
-            painter.setPen(centerColor(center_id));
-            painter.setBrush(centerColor(center_id));
+            int center_id = curr_plane[i][j];
+            if (center_id == -1) {
+                painter.setPen(EMPTY_COLOR);
+                painter.setBrush(EMPTY_COLOR);
+            } else {
+                painter.setPen(centerColor(center_id));
+                painter.setBrush(centerColor(center_id));
+            }
             int r = cellPixSize();
             painter.drawRect(qp.x() - r/2, qp.y() - r/2, r, r);
         }

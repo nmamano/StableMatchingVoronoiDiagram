@@ -5,7 +5,7 @@
 #include <vector>
 #include <iostream>
 #include "matchingutils.h"
-#include "fastmatcher.h"
+#include "matcher.h"
 
 class PlaneDisplay : public QWidget
 {
@@ -13,8 +13,7 @@ class PlaneDisplay : public QWidget
 public:
     PlaneDisplay(int n = 200, int k = 100, QWidget *parent = 0);
 
-    void setGridSize(int newSize);
-    void setCenters(const std::vector<Point>& centers);
+    void setGridSize(int newN);
     void setRandomCenters(int numCenters);
     void addCenter(const Point& newCenter);
     void removeCenter(int center_id);
@@ -24,16 +23,19 @@ public:
 
     void setShowCentroids(bool show);
     void setShowStatistics(bool show);
+    void setShowIdealPerimeter(bool show);
+
         int getGridSize() { return n; }
     int getNumCenters() { return centers.size(); }
     int numPoints();
 
-    void init();
-public slots:
-    void printScene();
-    void refreshScene();
+    void setDistMetric(int metric);
 
+    void showConstrStep();
+
+public slots:
 protected:
+
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseReleaseEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
@@ -41,6 +43,9 @@ protected:
     void resizeEvent(QResizeEvent *event) Q_DECL_OVERRIDE;
 
 private:
+    void printScene();
+    void refreshScene();
+
     void initRegionColors();
     std::vector<QColor> region_colors;
     QColor centerColor(int centerId);
@@ -49,6 +54,7 @@ private:
     const int CENTROID_RAD = 3;
     const int POINT_RAD = 1;
     QColor POINT_COLOR;
+    QColor EMPTY_COLOR;
 
     int n;
     std::vector<std::vector<int>> plane;
@@ -60,9 +66,9 @@ private:
 
     void printGrid();
     void printCenters();
-    void printRegions();
+    void printRegions(const vector<vector<int> > &curr_plane);
 
-    FastMatcher matcher;
+    Matcher matcher;
     void updateRegions();
 
     bool moving;
@@ -72,6 +78,7 @@ private:
 
     bool shouldPrintCentroids;
     bool shouldPrintStatistics;
+    bool shouldPrintIdealPerimeter;
 
     void toggleCenter(QPoint qp);
 
@@ -85,6 +92,14 @@ private:
     void printStatistics();
     int numLines(const string &s);
     string longestLine(const string &s);
+
+    vector<vector<int>> constrPlane;
+    int constrIter;
+
+    void printConstrScene();
+    void printIdealPerimeters();
+    double areaToRad(double area);
+    double areaToSquareDiag(double area);
 signals:
 
 };

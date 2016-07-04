@@ -8,15 +8,11 @@
 
 using namespace std;
 
-double Point::dist(const Point &q) const {
+double Point::distL2(const Point &q) const {
     return sqrt((i-q.i)*(i-q.i)+(j-q.j)*(j-q.j));
 }
 
-double Point::magnitude() const {
-    return dist(Point(0,0));
-}
-
-bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers) {
+bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers, int metric) {
     bool res = true;
     int n = plane.size();
     int k = centers.size();
@@ -26,8 +22,8 @@ bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers) 
         for (int j = 0; j < n; j++) {
             int c_id = plane[i][j];
             num_points[c_id]++;
-            Point p(i, j);
-            double dis = p.dist(centers[c_id]);
+            Point c = centers[c_id];
+            double dis = Point::dist(Point(i, j), c, metric);
             if (dis > farthest_dist[c_id]) {
                 farthest_dist[c_id] = dis;
             }
@@ -45,11 +41,11 @@ bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers) 
         for (int j = 0; j < n; j+= 10) {
             int c_id = plane[i][j];
             Point p(i, j);
-            double dis = p.dist(centers[c_id]);
+            double dis = Point::dist(p, centers[c_id], metric);
             for (int r = 0; r < k; r++) {
                 if (r != c_id) {
-                    double dis2 = p.dist(centers[r]);
-                    const double PRES = 0.00001;
+                    double dis2 = Point::dist(p, centers[r], metric);
+                    const double PRES = 0.0000;
                     if (dis2 < dis-PRES and dis2 < farthest_dist[r]-PRES) {
                         res = false;
                         cout << "Error: matching not stable" << endl << p << " prefers center " << r << " " << centers[r] <<
@@ -145,7 +141,7 @@ Point centroid(const vector<Point>& points) {
     return Point(round(iSum/count), round(jSum/count));
 }
 
-double avgDistPointCenter(const vector<vector<int> > &plane, const vector<Point> &centers)
+double avgDistPointCenter(const vector<vector<int> > &plane, const vector<Point> &centers, int metric)
 {
     int n = plane.size();
     double dis_sum = 0;
@@ -153,19 +149,30 @@ double avgDistPointCenter(const vector<vector<int> > &plane, const vector<Point>
         for (int j = 0; j < n; j++) {
             int c_id = plane[i][j];
             if (c_id == -1) cout<<"Error: unassigned point"<<endl;
-            dis_sum += Point(i,j).dist(centers[c_id]);
+            Point c = centers[c_id];
+            dis_sum += Point::dist(Point(i, j), c, metric);
         }
     }
     return dis_sum/(n*n);
 }
 
-double avgDistCenterCentroid(const vector<vector<int> > &plane, const vector<Point> &centers)
+double avgDistCenterCentroid(const vector<vector<int> > &plane, const vector<Point> &centers, int metric)
 {
     int k = centers.size();
     vector<Point> ctrds = centroids(plane, k);
     double dis_sum = 0;
     for (int i = 0; i < k; i++) {
-        dis_sum += centers[i].dist(ctrds[i]);
+        dis_sum += Point::dist(centers[i], ctrds[i], metric);
     }
     return dis_sum/k;
+}
+
+int numAssignedPoints(const vector<vector<int> > &plane)
+{
+    int n = plane.size();
+    int count = 0;
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            if (plane[i][j] != -1) count++;
+    return count;
 }

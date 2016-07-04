@@ -33,8 +33,14 @@ void MainWindow::about()
         tr("Each point is assigned to a center in a "
            "way that every center has the same number of points "
            "assigned and the matching is stable (in the Stable "
-           "Marriage Problem sense).\n\n"
-           "Add/remove/move centers with the mouse.\n"));
+           "Marriage Problem sense).\n"
+           "\n"
+           "Features:\n"
+           "- Add, remove, or move centers with mouse.\n"
+           "- Move centers to centroids.\n"
+           "- Show centroids, statistics, and ideal perimeters.\n"
+           "- Support for Euclidean, Manhattan, and Chebyshev distances.\n"
+           "- Simulate matching algorithm step by step.\n"));
 }
 
 void MainWindow::changeSize()
@@ -71,6 +77,31 @@ void MainWindow::showCentroids(bool show)
 void MainWindow::showStatistics(bool show)
 {
     planeDisplay->setShowStatistics(show);
+}
+
+void MainWindow::showIdealPerimeter(bool show)
+{
+    planeDisplay->setShowIdealPerimeter(show);
+}
+
+void MainWindow::setL1Metric()
+{
+    planeDisplay->setDistMetric(1);
+}
+
+void MainWindow::showConstrStep()
+{
+    planeDisplay->showConstrStep();
+}
+
+void MainWindow::setL2Metric()
+{
+    planeDisplay->setDistMetric(2);
+}
+
+void MainWindow::setLInftyMetric()
+{
+    planeDisplay->setDistMetric(-1);
 }
 
 void MainWindow::createActions()
@@ -113,8 +144,35 @@ void MainWindow::createActions()
     showStatisticsAct->setChecked(true);
     connect(showStatisticsAct, SIGNAL(triggered(bool)), this, SLOT(showStatistics(bool)));
 
+    showIdealPerimeterAct = new QAction(tr("Show ideal perimeters"), this);
+    showIdealPerimeterAct->setCheckable(true);
+    showIdealPerimeterAct->setChecked(true);
+    connect(showIdealPerimeterAct, SIGNAL(triggered(bool)), this, SLOT(showIdealPerimeter(bool)));
+
+    L1MetricAct = new QAction(tr("Manhattan distance"), this);
+    L1MetricAct->setCheckable(true);
+    connect(L1MetricAct, SIGNAL(triggered()), this, SLOT(setL1Metric()));
+
+    L2MetricAct = new QAction(tr("Euclidean distance"), this);
+    L2MetricAct->setCheckable(true);
+    connect(L2MetricAct, SIGNAL(triggered()), this, SLOT(setL2Metric()));
+
+    LInftyMetricAct = new QAction(tr("Chebyshev distance"), this);
+    LInftyMetricAct->setCheckable(true);
+    connect(LInftyMetricAct, SIGNAL(triggered()), this, SLOT(setLInftyMetric()));
+
+    metricAct = new QActionGroup(this);
+    metricAct->addAction(L1MetricAct);
+    metricAct->addAction(L2MetricAct);
+    metricAct->addAction(LInftyMetricAct);
+    L2MetricAct->setChecked(true);
+
+    connect(moveCentersToCentroidsAct, SIGNAL(triggered()), this, SLOT(moveCentersToCentroids()));
     moveCentersToCentroidsAct->setShortcut(Qt::Key_Right);
 
+    showConstrStepAct = new QAction(tr("Show construction step"), this);
+    connect(showConstrStepAct, SIGNAL(triggered()), this, SLOT(showConstrStep()));
+    showConstrStepAct->setShortcut(Qt::Key_S);
 }
 
 void MainWindow::createMenus()
@@ -131,10 +189,17 @@ void MainWindow::createMenus()
     optionMenu->addAction(gridSizeAct);
     optionMenu->addAction(centersAct);
     optionMenu->addAction(moveCentersToCentroidsAct);
+    optionMenu->addSeparator();
+    optionMenu->addAction(L1MetricAct);
+    optionMenu->addAction(L2MetricAct);
+    optionMenu->addAction(LInftyMetricAct);
+    optionMenu->addSeparator();
+    optionMenu->addAction(showConstrStepAct);
 
     viewMenu = new QMenu(tr("View"), this);
     viewMenu->addAction(showCentroidsAct);
     viewMenu->addAction(showStatisticsAct);
+    viewMenu->addAction(showIdealPerimeterAct);
 
     helpMenu = new QMenu(tr("Help"), this);
     helpMenu->addAction(aboutAct);

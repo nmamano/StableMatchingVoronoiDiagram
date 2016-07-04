@@ -1,6 +1,6 @@
-#include "mainwindow.h"
 #include <QApplication>
 #include <iostream>
+#include "mainwindow.h"
 #include "benchmarker.h"
 
 int main(int argc, char *argv[])
@@ -21,4 +21,8 @@ int main(int argc, char *argv[])
  * Bicolor annuli region drawing
  * comment code
  * document
+ * disable colors for colorblind people ?
+ * factorize metrics ?
+ *
+ * factorize point to qpoint conversion (now width and height is always the same)
  */

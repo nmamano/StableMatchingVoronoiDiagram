@@ -16,13 +16,11 @@ SOURCES += matchingutils.cpp \
     main.cpp\
     mainwindow.cpp \
     planedisplay.cpp \
-    matcher.cpp \
-    fastmatcher.cpp \
-    benchmarker.cpp
+    benchmarker.cpp \
+    matcher.cpp
 
 HEADERS  += mainwindow.h \
     planedisplay.h \
-    matcher.h \
-    fastmatcher.h \
     matchingutils.h \
-    benchmarker.h
+    benchmarker.h \
+    matcher.h
