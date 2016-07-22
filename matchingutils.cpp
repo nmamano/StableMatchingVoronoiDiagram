@@ -8,11 +8,8 @@
 
 using namespace std;
 
-double Point::distL2(const Point &q) const {
-    return sqrt((i-q.i)*(i-q.i)+(j-q.j)*(j-q.j));
-}
-
-bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers, int metric) {
+bool is_stable(const vector<vector<int> > &plane,
+        const vector<Point> &centers, Metric metric, double PRES, bool stopEarly) {
     bool res = true;
     int n = plane.size();
     int k = centers.size();
@@ -23,7 +20,7 @@ bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers, 
             int c_id = plane[i][j];
             num_points[c_id]++;
             Point c = centers[c_id];
-            double dis = Point::dist(Point(i, j), c, metric);
+            double dis = metric.ddist(Point(i, j), c);
             if (dis > farthest_dist[c_id]) {
                 farthest_dist[c_id] = dis;
             }
@@ -34,25 +31,24 @@ bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers, 
         if (num_points[i] != quota and num_points[i] != quota+1) {
             res = false;
             cout << "Error: center has " << num_points[i] << " sites but the quota is " << quota << endl;
-            return res;
+            if (stopEarly) return res;
         }
     }
     for (int i = 0; i < n; i+= 10) { //pseudo random sampling..
         for (int j = 0; j < n; j+= 10) {
             int c_id = plane[i][j];
             Point p(i, j);
-            double dis = Point::dist(p, centers[c_id], metric);
+            double dis = metric.ddist(p, centers[c_id]);
             for (int r = 0; r < k; r++) {
                 if (r != c_id) {
-                    double dis2 = Point::dist(p, centers[r], metric);
-                    const double PRES = 0.0000;
+                    double dis2 = metric.ddist(p, centers[r]);
                     if (dis2 < dis-PRES and dis2 < farthest_dist[r]-PRES) {
                         res = false;
                         cout << "Error: matching not stable" << endl << p << " prefers center " << r << " " << centers[r] <<
                                 " at distance " << dis2 << " than center " << c_id << " " << centers[c_id] << " at " <<
                                 "distance " << dis << endl << "center " << r << " " << centers[r] << " prefers " << p << " to " <<
                                 "its farthest point which is at distance " << farthest_dist[r] << endl;
-                        return res;
+                        if (stopEarly) return res;
                     }
                 }
             }
@@ -103,8 +99,6 @@ Point randomPoint(int n)
     return Point(qrand()%n, qrand()%n);
 }
 
-
-
 vector<Point> centroids(const vector<vector<int>>& plane,
                         int k) {
     vector<Point> centroids(k);
@@ -113,6 +107,16 @@ vector<Point> centroids(const vector<vector<int>>& plane,
         centroids[i] = centroid(points[i]);
     }
     return centroids;
+}
+
+Point centroid(const vector<Point>& points) {
+    double iSum = 0, jSum = 0;
+    for (const Point& p : points) {
+        iSum += p.i;
+        jSum += p.j;
+    }
+    int count = points.size();
+    return Point(round(iSum/count), round(jSum/count));
 }
 
 /** Returns the list of points assigned to each center */
@@ -131,18 +135,38 @@ vector<vector<Point>> pointsByCenter(const vector<vector<int>>& plane,
     return res;
 }
 
-Point centroid(const vector<Point>& points) {
-    double iSum = 0, jSum = 0;
-    for (const Point& p : points) {
-        iSum += p.i;
-        jSum += p.j;
+vector<Point> weightedCentroids(
+        const vector<vector<int>>& plane,
+        int k, const vector<Point>& centers, Metric metric, Num weightExp) {
+    vector<Point> centroids(k);
+    vector<vector<Point>> points = pointsByCenter(plane, k);
+    for (int i = 0; i < k; i++) {
+        centroids[i] = weightedCentroid(points[i], centers[i], metric, weightExp);
     }
-    int count = points.size();
-    return Point(round(iSum/count), round(jSum/count));
+    return centroids;
 }
 
-double avgDistPointCenter(const vector<vector<int> > &plane, const vector<Point> &centers, int metric)
-{
+Point weightedCentroid(const vector<Point>& points,
+        const Point& center, Metric metric, Num weightExp) {
+    if (weightExp.isInf()) {
+        throw runtime_error("not implemented yet");
+    }
+    double iSum = 0, jSum = 0, totalWeight = 0;
+    for (const Point& p : points) {
+        double dis = metric.ddist(p, center);
+        if (dis == 0 && weightExp.val < 0) continue;
+        double pWeight = pow(dis, weightExp.val);
+        iSum += p.i*pWeight;
+        jSum += p.j*pWeight;
+        totalWeight += pWeight;
+    }
+    return Point(round(iSum/totalWeight), round(jSum/totalWeight));
+}
+
+
+
+double avgDistPointCenter(const vector<vector<int> > &plane,
+        const vector<Point> &centers, Metric metric) {
     int n = plane.size();
     double dis_sum = 0;
     for (int i = 0; i < n; i++) {
@@ -150,19 +174,20 @@ double avgDistPointCenter(const vector<vector<int> > &plane, const vector<Point>
             int c_id = plane[i][j];
             if (c_id == -1) cout<<"Error: unassigned point"<<endl;
             Point c = centers[c_id];
-            dis_sum += Point::dist(Point(i, j), c, metric);
+            dis_sum += metric.ddist(Point(i, j), c);
         }
     }
     return dis_sum/(n*n);
 }
 
-double avgDistCenterCentroid(const vector<vector<int> > &plane, const vector<Point> &centers, int metric)
+double avgDistCenterCentroid(const vector<vector<int> > &plane,
+        const vector<Point> &centers, Metric metric, Num weightExp)
 {
     int k = centers.size();
-    vector<Point> ctrds = centroids(plane, k);
+    vector<Point> ctrds = weightedCentroids(plane, k, centers, metric, weightExp);
     double dis_sum = 0;
     for (int i = 0; i < k; i++) {
-        dis_sum += Point::dist(centers[i], ctrds[i], metric);
+        dis_sum += metric.ddist(centers[i], ctrds[i]);
     }
     return dis_sum/k;
 }

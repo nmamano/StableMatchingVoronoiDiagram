@@ -17,10 +17,16 @@ SOURCES += matchingutils.cpp \
     mainwindow.cpp \
     planedisplay.cpp \
     benchmarker.cpp \
-    matcher.cpp
+    matcher.cpp \
+    metric.cpp \
+    point.cpp \
+    num.cpp
 
 HEADERS  += mainwindow.h \
     planedisplay.h \
     matchingutils.h \
     benchmarker.h \
-    matcher.h
+    matcher.h \
+    metric.h \
+    point.h \
+    num.h

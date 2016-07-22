@@ -1,12 +1,13 @@
 #include "mainwindow.h"
 #include "planedisplay.h"
-
+#include "num.h"
 #include <QtWidgets>
 
 MainWindow::MainWindow()
 {
     QTime now = QTime::currentTime();
     qsrand(now.msec());
+//    qsrand(0);
     planeDisplay = new PlaneDisplay;
     setCentralWidget(planeDisplay);
     createActions();
@@ -64,6 +65,37 @@ void MainWindow::changeCenters()
     if (ok) planeDisplay->setRandomCenters(newNum);
 }
 
+
+void MainWindow::changeCentroidWeight()
+{
+    bool ok;
+    QString newWeight = QInputDialog::getText(this, tr("Centroid weight"),
+           tr("Select centroid weight (a real number)"),
+           QLineEdit::Normal,
+           planeDisplay->getCentroidWeight(),
+           &ok);
+    if (ok && Num::isNum(newWeight)) {
+        Num weight = Num(newWeight);
+        if (!weight.isInf())
+            planeDisplay->setCentroidWeight(weight);
+    }
+}
+
+void MainWindow::changeMetric()
+{
+    bool ok;
+    QString newMetric = QInputDialog::getText(this, tr("Centroid weight"),
+           tr("Select metric (a real number >= 1 or 'inf')"),
+           QLineEdit::Normal,
+           planeDisplay->getCentroidWeight(),
+           &ok);
+    if (ok && Num::isNum(newMetric)) {
+        Num l(newMetric);
+        if (l.val >= 1)
+            planeDisplay->setMetric(l);
+    }
+}
+
 void MainWindow::moveCentersToCentroids()
 {
     planeDisplay->moveCentersToCentroids();
@@ -84,35 +116,51 @@ void MainWindow::showIdealPerimeter(bool show)
     planeDisplay->setShowIdealPerimeter(show);
 }
 
-void MainWindow::setL1Metric()
-{
-    planeDisplay->setDistMetric(1);
-}
-
 void MainWindow::showConstrStep()
 {
     planeDisplay->showConstrStep();
 }
 
+void MainWindow::setMetricsUnchecked() {
+    L1MetricAct->setChecked(false);
+    L2MetricAct->setChecked(false);
+    LInftyMetricAct->setChecked(false);
+    otherMetricAct->setChecked(false);
+}
+
+void MainWindow::setL1Metric()
+{
+    setMetricsUnchecked();
+    L1MetricAct->setChecked(true);
+    planeDisplay->setMetric(Num(1));
+}
+
 void MainWindow::setL2Metric()
 {
-    planeDisplay->setDistMetric(2);
+    setMetricsUnchecked();
+    L2MetricAct->setChecked(true);
+    planeDisplay->setMetric(Num(2));
 }
 
 void MainWindow::setLInftyMetric()
 {
-    planeDisplay->setDistMetric(-1);
+    setMetricsUnchecked();
+    LInftyMetricAct->setChecked(true);
+    planeDisplay->setMetric(Num::inf());
 }
 
 void MainWindow::createActions()
 {
-    foreach (QByteArray format, QImageWriter::supportedImageFormats()) {
+    for (QByteArray format : QImageWriter::supportedImageFormats()) {
         QString text = tr("%1...").arg(QString(format).toUpper());
-
+        if (text != "PNG..." && text != "JPEG...") continue;
         QAction *action = new QAction(text, this);
         action->setData(format);
         connect(action, SIGNAL(triggered()), this, SLOT(save()));
         saveAsActs.append(action);
+        if (text == "PNG...") {
+            action->setShortcut(Qt::CTRL + Qt::Key_S);
+        }
     }
 
     aboutAct = new QAction(tr("About"), this);
@@ -124,15 +172,19 @@ void MainWindow::createActions()
 
     gridSizeAct = new QAction(tr("Grid size..."), this);
     connect(gridSizeAct, SIGNAL(triggered()), this, SLOT(changeSize()));
-    gridSizeAct->setShortcut(Qt::Key_G);
+    gridSizeAct->setShortcut(Qt::Key_N);
 
     centersAct = new QAction(tr("Num centers..."), this);
     connect(centersAct, SIGNAL(triggered()), this, SLOT(changeCenters()));
-    centersAct->setShortcut(Qt::Key_C);
+    centersAct->setShortcut(Qt::Key_K);
 
     moveCentersToCentroidsAct = new QAction(tr("Move centers to centroids"), this);
     connect(moveCentersToCentroidsAct, SIGNAL(triggered()), this, SLOT(moveCentersToCentroids()));
     moveCentersToCentroidsAct->setShortcut(Qt::Key_Right);
+
+    centroidWeightAct = new QAction(tr("Centroid weight..."), this);
+    connect(centroidWeightAct, SIGNAL(triggered()), this, SLOT(changeCentroidWeight()));
+    centroidWeightAct->setShortcut(Qt::Key_P);
 
     showCentroidsAct = new QAction(tr("Show centroids"), this);
     showCentroidsAct->setCheckable(true);
@@ -146,7 +198,7 @@ void MainWindow::createActions()
 
     showIdealPerimeterAct = new QAction(tr("Show ideal perimeters"), this);
     showIdealPerimeterAct->setCheckable(true);
-    showIdealPerimeterAct->setChecked(true);
+    showIdealPerimeterAct->setChecked(false);
     connect(showIdealPerimeterAct, SIGNAL(triggered(bool)), this, SLOT(showIdealPerimeter(bool)));
 
     L1MetricAct = new QAction(tr("Manhattan distance"), this);
@@ -156,19 +208,16 @@ void MainWindow::createActions()
     L2MetricAct = new QAction(tr("Euclidean distance"), this);
     L2MetricAct->setCheckable(true);
     connect(L2MetricAct, SIGNAL(triggered()), this, SLOT(setL2Metric()));
+    L2MetricAct->setChecked(true);
 
     LInftyMetricAct = new QAction(tr("Chebyshev distance"), this);
     LInftyMetricAct->setCheckable(true);
     connect(LInftyMetricAct, SIGNAL(triggered()), this, SLOT(setLInftyMetric()));
 
-    metricAct = new QActionGroup(this);
-    metricAct->addAction(L1MetricAct);
-    metricAct->addAction(L2MetricAct);
-    metricAct->addAction(LInftyMetricAct);
-    L2MetricAct->setChecked(true);
+    otherMetricAct = new QAction(tr("Other"), this);
+    connect(otherMetricAct, SIGNAL(triggered()), this, SLOT(changeMetric()));
+    otherMetricAct->setShortcut(Qt::Key_M);
 
-    connect(moveCentersToCentroidsAct, SIGNAL(triggered()), this, SLOT(moveCentersToCentroids()));
-    moveCentersToCentroidsAct->setShortcut(Qt::Key_Right);
 
     showConstrStepAct = new QAction(tr("Show construction step"), this);
     connect(showConstrStepAct, SIGNAL(triggered()), this, SLOT(showConstrStep()));
@@ -189,10 +238,12 @@ void MainWindow::createMenus()
     optionMenu->addAction(gridSizeAct);
     optionMenu->addAction(centersAct);
     optionMenu->addAction(moveCentersToCentroidsAct);
+    optionMenu->addAction(centroidWeightAct);
     optionMenu->addSeparator();
     optionMenu->addAction(L1MetricAct);
     optionMenu->addAction(L2MetricAct);
     optionMenu->addAction(LInftyMetricAct);
+    optionMenu->addAction(otherMetricAct);
     optionMenu->addSeparator();
     optionMenu->addAction(showConstrStepAct);
 

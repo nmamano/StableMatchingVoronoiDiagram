@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <vector>
 #include <iostream>
+#include "num.h"
 #include "matchingutils.h"
 #include "matcher.h"
 
@@ -11,7 +12,7 @@ class PlaneDisplay : public QWidget
 {
     Q_OBJECT
 public:
-    PlaneDisplay(int n = 200, int k = 100, QWidget *parent = 0);
+    PlaneDisplay(int n = 300, int k = 40, QWidget *parent = 0);
 
     void setGridSize(int newN);
     void setRandomCenters(int numCenters);
@@ -25,13 +26,16 @@ public:
     void setShowStatistics(bool show);
     void setShowIdealPerimeter(bool show);
 
-        int getGridSize() { return n; }
+    int getGridSize() { return n; }
     int getNumCenters() { return centers.size(); }
+    QString getCentroidWeight() { return centroidWeight.toQstr(); }
     int numPoints();
 
-    void setDistMetric(int metric);
+    void setMetric(Metric metric);
 
     void showConstrStep();
+
+    void setCentroidWeight(Num weight);
 
 public slots:
 protected:
@@ -55,6 +59,7 @@ private:
     const int POINT_RAD = 1;
     QColor POINT_COLOR;
     QColor EMPTY_COLOR;
+    QColor BOUNDARY_COLOR;
 
     int n;
     std::vector<std::vector<int>> plane;
@@ -100,6 +105,12 @@ private:
     void printIdealPerimeters();
     double areaToRad(double area);
     double areaToSquareDiag(double area);
+
+    Num centroidWeight;
+    int moveCentersIter;
+
+    void printBoxedText(string s);
+    void printBoundaries();
 signals:
 
 };

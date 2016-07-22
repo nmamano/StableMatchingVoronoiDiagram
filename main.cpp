@@ -22,7 +22,13 @@ int main(int argc, char *argv[])
  * comment code
  * document
  * disable colors for colorblind people ?
- * factorize metrics ?
  *
  * factorize point to qpoint conversion (now width and height is always the same)
+ *
+ *
+ * print boundaries
+ *
+ * use unsigned short for grid indices and center indices
+ *
+ * update readme
  */

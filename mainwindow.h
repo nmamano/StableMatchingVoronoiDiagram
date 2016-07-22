@@ -21,6 +21,9 @@ private slots:
     void about();
     void changeSize();
     void changeCenters();
+    void changeCentroidWeight();
+    void changeMetric();
+
     void moveCentersToCentroids();
     void showCentroids(bool show);
     void showStatistics(bool show);
@@ -31,6 +34,7 @@ private slots:
     void setL1Metric();
 
     void showConstrStep();
+
 private:
     void createActions();
     void createMenus();
@@ -50,10 +54,13 @@ private:
     QAction *moveCentersToCentroidsAct;
     QAction *gridSizeAct;
     QAction *centersAct;
+    QAction *centroidWeightAct;
+
     QActionGroup *metricAct;
     QAction *L1MetricAct;
     QAction *L2MetricAct;
     QAction *LInftyMetricAct;
+    QAction *otherMetricAct;
 
     QAction *showConstrStepAct;
 
@@ -61,6 +68,7 @@ private:
     QAction *showStatisticsAct;
     QAction *showIdealPerimeterAct;
 
+    void setMetricsUnchecked();
 };
 
 #endif // MAINWINDOW_H
