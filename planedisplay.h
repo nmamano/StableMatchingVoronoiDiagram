@@ -6,7 +6,7 @@
 #include <iostream>
 #include "num.h"
 #include "matchingutils.h"
-#include "matcher.h"
+#include "diskgrower.h"
 
 class PlaneDisplay : public QWidget
 {
@@ -73,7 +73,7 @@ private:
     void printCenters();
     void printRegions(const vector<vector<int> > &curr_plane);
 
-    Matcher matcher;
+    DiskGrower matcher;
     void updateRegions();
 
     bool moving;

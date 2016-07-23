@@ -7,7 +7,19 @@
 #include "metric.h"
 using namespace std;
 
-bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers, Metric distMetric, double PRES, bool stopEarly = true);
+struct Link {
+    int i,j;
+    int cId;
+    Link(int i, int j, int cId):
+        i(i), j(j), cId(cId) { }
+    Link(): cId(-1) { }
+    friend ostream& operator<<(ostream& out, const Link& l) {
+        out << "(" << l.i << "," << l.j << "," << l.cId << ")";
+        return out;
+    }
+};
+
+bool is_stable(const vector<vector<int> > &plane, const vector<Point> &centers, Metric distMetric, double PRES, bool stopEarly);
 vector<int> centerQuotas(int n, int k);
 
 Point centroid(const vector<Point>& points);

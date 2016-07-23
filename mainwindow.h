@@ -32,6 +32,8 @@ private slots:
     void setLInftyMetric();
     void setL2Metric();
     void setL1Metric();
+    void setRealCenters();
+    void setDiscreteCenters();
 
     void showConstrStep();
 
@@ -39,6 +41,7 @@ private:
     void createActions();
     void createMenus();
     bool saveFile(const QByteArray &fileFormat);
+    void setMetricsUnchecked();
 
     PlaneDisplay *planeDisplay;
     QMenu *saveAsMenu;
@@ -56,7 +59,6 @@ private:
     QAction *centersAct;
     QAction *centroidWeightAct;
 
-    QActionGroup *metricAct;
     QAction *L1MetricAct;
     QAction *L2MetricAct;
     QAction *LInftyMetricAct;
@@ -68,7 +70,10 @@ private:
     QAction *showStatisticsAct;
     QAction *showIdealPerimeterAct;
 
-    void setMetricsUnchecked();
+    QActionGroup *centerType;
+    QAction *discreteCentersAct;
+    QAction *realCentersAct;
+
 };
 
 #endif // MAINWINDOW_H

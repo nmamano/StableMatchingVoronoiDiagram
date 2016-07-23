@@ -29,13 +29,17 @@ bool is_stable(const vector<vector<int> > &plane,
     int quota = n*n/k;
     for (int i = 0; i < k; i++) {
         if (num_points[i] != quota and num_points[i] != quota+1) {
-            res = false;
             cout << "Error: center has " << num_points[i] << " sites but the quota is " << quota << endl;
-            if (stopEarly) return res;
+            if (stopEarly) return false;
+            res = false;
         }
     }
-    for (int i = 0; i < n; i+= 10) { //pseudo random sampling..
-        for (int j = 0; j < n; j+= 10) {
+    int inc = 1;
+    if (n*n*k >= 1000*1000*1000) inc = 50;
+    else if (n*n*k >= 10*1000*1000) inc = 10;
+
+    for (int i = 0; i < n; i+= inc) { //sampling..
+        for (int j = 0; j < n; j+= inc) {
             int c_id = plane[i][j];
             Point p(i, j);
             double dis = metric.ddist(p, centers[c_id]);
@@ -43,12 +47,12 @@ bool is_stable(const vector<vector<int> > &plane,
                 if (r != c_id) {
                     double dis2 = metric.ddist(p, centers[r]);
                     if (dis2 < dis-PRES and dis2 < farthest_dist[r]-PRES) {
-                        res = false;
                         cout << "Error: matching not stable" << endl << p << " prefers center " << r << " " << centers[r] <<
                                 " at distance " << dis2 << " than center " << c_id << " " << centers[c_id] << " at " <<
                                 "distance " << dis << endl << "center " << r << " " << centers[r] << " prefers " << p << " to " <<
                                 "its farthest point which is at distance " << farthest_dist[r] << endl;
-                        if (stopEarly) return res;
+                        if (stopEarly) return false;
+                        res = false;
                     }
                 }
             }

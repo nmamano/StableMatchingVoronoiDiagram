@@ -2,7 +2,7 @@
 #define POINT_H
 #include <vector>
 #include <iostream>
-
+#include "dpoint.h"
 using namespace std;
 
 
@@ -19,6 +19,7 @@ public:
         out << "(" << p.i << "," << p.j << ")";
         return out;
     }
+    operator DPoint(){return DPoint(i,j);}
 };
 
 

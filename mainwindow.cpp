@@ -93,6 +93,12 @@ void MainWindow::changeMetric()
         Num l(newMetric);
         if (l.val >= 1)
             planeDisplay->setMetric(l);
+
+        setMetricsUnchecked();
+        if (l.val == 1) L1MetricAct->setChecked(true);
+        else if (l.isInf()) LInftyMetricAct->setChecked(true);
+        else if (l.val == 2) L2MetricAct->setChecked(true);
+        else otherMetricAct->setChecked(true);
     }
 }
 
@@ -133,6 +139,16 @@ void MainWindow::setL1Metric()
     setMetricsUnchecked();
     L1MetricAct->setChecked(true);
     planeDisplay->setMetric(Num(1));
+}
+
+void MainWindow::setRealCenters()
+{
+
+}
+
+void MainWindow::setDiscreteCenters()
+{
+
 }
 
 void MainWindow::setL2Metric()
@@ -215,9 +231,22 @@ void MainWindow::createActions()
     connect(LInftyMetricAct, SIGNAL(triggered()), this, SLOT(setLInftyMetric()));
 
     otherMetricAct = new QAction(tr("Other"), this);
+    otherMetricAct->setCheckable(true);
     connect(otherMetricAct, SIGNAL(triggered()), this, SLOT(changeMetric()));
     otherMetricAct->setShortcut(Qt::Key_M);
 
+    discreteCentersAct = new QAction(tr("Discrete centers"), this);
+    discreteCentersAct->setCheckable(true);
+    connect(discreteCentersAct, SIGNAL(triggered()), this, SLOT(setDiscreteCenters()));
+
+    realCentersAct = new QAction(tr("Real centers"), this);
+    realCentersAct->setCheckable(true);
+    connect(realCentersAct, SIGNAL(triggered()), this, SLOT(setRealCenters()));
+
+    centerType = new QActionGroup(this);
+    centerType->addAction(discreteCentersAct);
+    centerType->addAction(realCentersAct);
+    discreteCentersAct->setChecked(true);
 
     showConstrStepAct = new QAction(tr("Show construction step"), this);
     connect(showConstrStepAct, SIGNAL(triggered()), this, SLOT(showConstrStep()));
@@ -244,6 +273,9 @@ void MainWindow::createMenus()
     optionMenu->addAction(L2MetricAct);
     optionMenu->addAction(LInftyMetricAct);
     optionMenu->addAction(otherMetricAct);
+    optionMenu->addSeparator();
+    optionMenu->addAction(discreteCentersAct);
+    optionMenu->addAction(realCentersAct);
     optionMenu->addSeparator();
     optionMenu->addAction(showConstrStepAct);
 

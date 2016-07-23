@@ -17,16 +17,28 @@ SOURCES += matchingutils.cpp \
     mainwindow.cpp \
     planedisplay.cpp \
     benchmarker.cpp \
-    matcher.cpp \
     metric.cpp \
     point.cpp \
-    num.cpp
+    num.cpp \
+    allpairsorting.cpp \
+    radixsort.cpp \
+    neighborheuristic.cpp \
+    siteheap.cpp \
+    bigreedymatcher.cpp \
+    diskgrower.cpp \
+    dpoint.cpp
 
 HEADERS  += mainwindow.h \
     planedisplay.h \
     matchingutils.h \
     benchmarker.h \
-    matcher.h \
     metric.h \
     point.h \
-    num.h
+    num.h \
+    allpairsorting.h \
+    radixsort.h \
+    neighborheuristic.h \
+    siteheap.h \
+    bigreedymatcher.h \
+    diskgrower.h \
+    dpoint.h
