@@ -120,7 +120,7 @@ void DiskGrower::buildP() {
     P = pointsSortedByDistOrigin(n, metric);
 }
 
-void DiskGrower::innerLoop(int pi, int pj,
+void DiskGrower::processGridPoint(int pi, int pj,
         const vector<int>& remCIds, const vector<Point>& centers,
         vector<vector<int>>& plane, vector<int>& quotas) const {
     for (int cId : remCIds) {
@@ -134,17 +134,17 @@ void DiskGrower::innerLoop(int pi, int pj,
     }
 }
 
-void DiskGrower::middleLoop(int i, int j,
+void DiskGrower::processPPoint(int i, int j,
          const vector<int>& remCIds, const vector<Point>& centers,
          vector<vector<int>>& plane, vector<int>& quotas) const {
-    innerLoop(i, j, remCIds, centers, plane, quotas);
-    innerLoop(j, i, remCIds, centers, plane, quotas);
-    innerLoop(i, -j, remCIds, centers, plane, quotas);
-    innerLoop(j, -i, remCIds, centers, plane, quotas);
-    innerLoop(-i, j, remCIds, centers, plane, quotas);
-    innerLoop(-j, i, remCIds, centers, plane, quotas);
-    innerLoop(-i, -j, remCIds, centers, plane, quotas);
-    innerLoop(-j, -i, remCIds, centers, plane, quotas);
+    processGridPoint(i, j, remCIds, centers, plane, quotas);
+    processGridPoint(j, i, remCIds, centers, plane, quotas);
+    processGridPoint(i, -j, remCIds, centers, plane, quotas);
+    processGridPoint(j, -i, remCIds, centers, plane, quotas);
+    processGridPoint(-i, j, remCIds, centers, plane, quotas);
+    processGridPoint(-j, i, remCIds, centers, plane, quotas);
+    processGridPoint(-i, -j, remCIds, centers, plane, quotas);
+    processGridPoint(-j, -i, remCIds, centers, plane, quotas);
 }
 
 void DiskGrower::step(vector<vector<int>>& plane, const vector<Point> &centers, int iter) {
@@ -160,7 +160,7 @@ void DiskGrower::step(vector<vector<int>>& plane, const vector<Point> &centers, 
     vector<int> c_ids(k);
     for (int i = 0; i < k; i++) c_ids[i] = i;
     Point p = P[iter];
-    middleLoop(p.i, p.j, c_ids, centers, plane, quotas);
+    processPPoint(p.i, p.j, c_ids, centers, plane, quotas);
 }
 
 
@@ -181,7 +181,7 @@ void DiskGrower::incrementalMatching(const vector<Point> &centers,
     int innerIter = 0;
     while (PIndex < (int)P.size()) {
         const Point& p = P[PIndex];
-        middleLoop(p.i, p.j, remCIds, centers, plane, quotas);
+        processPPoint(p.i, p.j, remCIds, centers, plane, quotas);
         PIndex++;
         innerIter += 8*remCIds.size();
 
@@ -207,7 +207,7 @@ void DiskGrower::incrementalMatching(const vector<Point> &centers,
     return;
 }
 
-vector<vector<int>> DiskGrower::query(const vector<Point> &centers,
+vector<vector<int>> DiskGrower::intCentersQuery(const vector<Point> &centers,
         double cutoff) const {
     vector<vector<int>> plane;
     vector<int> quotas;
@@ -224,7 +224,7 @@ void DiskGrower::initEmpty(vector<vector<int>>& plane, vector<int>& quotas, int 
     quotas = centerQuotas(n, k);
 }
 
-vector<vector<int>> DiskGrower::query(const vector<DPoint>& centers) const {
+vector<vector<int>> DiskGrower::realCentersQuery(const vector<DPoint>& centers) const {
     vector<vector<int>> plane;
     vector<int> quotas;
     int k = centers.size();
@@ -233,6 +233,7 @@ vector<vector<int>> DiskGrower::query(const vector<DPoint>& centers) const {
     vector<int> remCIds(k);
     for (int i = 0; i < k; i++) remCIds[i] = i;
 
+//    cout<<"init cps and maxCpDist"<<endl;
     vector<Point> cps(k);
     double maxCpDist = 0;
     for (int i = 0; i < k; i++) {
@@ -241,38 +242,46 @@ vector<vector<int>> DiskGrower::query(const vector<DPoint>& centers) const {
         double d = metric.ddist(centers[i], cps[i]);
         if (d > maxCpDist) maxCpDist = d;
     }
+//    cout<<"centers and cps"<<endl;
+//    for(auto p:centers)cout<<p<<" ";cout<<endl;
+//    for(auto p:cps)cout<<p<<" ";cout<<endl;
 
     int numPoints = P.size();
     int chunkStart = 0;
     while (remCIds.size() > 0) {
+//        cout<<"numPoints:"<<numPoints<<endl;
+//        cout<<"maxCpDist:"<<maxCpDist<<endl;
+//        cout<<"chunkStart:"<<chunkStart<<endl;
         int chunkEnd = min(chunkStart+n, numPoints);
+        if (chunkEnd == chunkStart) return plane;
         double disLast = metric.ddist(P[chunkEnd-1], Point(0, 0));
         double disThreshold = disLast + 2*maxCpDist;
 
         int extrasEnd = chunkEnd;
         while (extrasEnd < numPoints &&
-               metric.ddist(P[extrasEnd], Point(0, 0)) <= disThreshold) {
+               metric.ddist(P[extrasEnd], Point(0, 0)) < disThreshold) {
             extrasEnd++;
         }
+//        cout<<"chunkEnd:"<<chunkEnd<<endl;
+//        cout<<"extrasEnd:"<<extrasEnd<<endl;
 
         //generate all the links in the chunk
         vector<Link> chunkLinks;
         //reserve maximum space we could need
         chunkLinks.reserve(8*(extrasEnd-chunkStart)*remCIds.size());
         double lengthThreshold = disLast + maxCpDist;
-        for (int i = chunkStart; i <= extrasEnd; i++) {
-            const Point& p = P[i];
-            addLinks(p.i, p.j,   remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
-            addLinks(p.j, p.i,   remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
-            addLinks(p.i, -p.j,  remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
-            addLinks(p.j, -p.i,  remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
-            addLinks(-p.i, p.j,  remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
-            addLinks(-p.j, p.i,  remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
-            addLinks(-p.i, -p.j, remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
-            addLinks(-p.j, -p.i, remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
+//        cout<<"add links"<<endl;
+        for (int i = chunkStart; i < chunkEnd; i++) {
+            //augment threshold to make sure every point is included despite precission errors
+            addLinksPPoint(P[i].i, P[i].j, remCIds, plane, centers, cps, chunkLinks, lengthThreshold+1);
         }
+        for (int i = chunkEnd; i < extrasEnd; i++) {
+            addLinksPPoint(P[i].i, P[i].j, remCIds, plane, centers, cps, chunkLinks, lengthThreshold);
+        }
+//        cout<<"sort links"<<endl;
         sortLinks(chunkLinks, centers);
 
+//        cout<<"process links in order"<<endl;
         //process links in order
         for (const Link& link : chunkLinks) {
             int i = link.i, j = link.j, cId = link.cId;
@@ -282,6 +291,7 @@ vector<vector<int>> DiskGrower::query(const vector<DPoint>& centers) const {
             }
         }
 
+//        cout<<"update remaining centers and maxCpDist"<<endl;
         //update remaining centers and maxCpDist
         maxCpDist = 0;
         vector<int> newCIds(0);
@@ -295,25 +305,41 @@ vector<vector<int>> DiskGrower::query(const vector<DPoint>& centers) const {
         }
         remCIds = move(newCIds);
 
+//        cout<<"remCIds:"<<endl;for(int c:remCIds)cout<<c<<" ";cout<<endl;
+//        cout<<"quotas:"<<endl;for(int q:quotas)cout<<q<<" ";cout<<endl;
+//        cout<<"move to next chunk"<<endl;
         //move to next chunk
         chunkStart = chunkEnd;
     }
     return plane;
 }
 
-void DiskGrower::addLinks(int pi, int pj, const vector<int>& remCIds,
+void DiskGrower::addLinksPPoint(int i, int j, const vector<int>& cIds,
     const vector<vector<int>>& plane, const vector<DPoint>& centers,
-    const vector<Point>& cps, vector<Link>& chunkLinks, double lengthThreshold) const {
+    const vector<Point>& cps, vector<Link>& links, double lengthThreshold) const {
+    addLinksGridPoint( i,  j, cIds, plane, centers, cps, links, lengthThreshold);
+    addLinksGridPoint( j,  i, cIds, plane, centers, cps, links, lengthThreshold);
+    addLinksGridPoint( i, -j, cIds, plane, centers, cps, links, lengthThreshold);
+    addLinksGridPoint( j, -i, cIds, plane, centers, cps, links, lengthThreshold);
+    addLinksGridPoint(-i,  j, cIds, plane, centers, cps, links, lengthThreshold);
+    addLinksGridPoint(-j,  i, cIds, plane, centers, cps, links, lengthThreshold);
+    addLinksGridPoint(-i, -j, cIds, plane, centers, cps, links, lengthThreshold);
+    addLinksGridPoint(-j, -i, cIds, plane, centers, cps, links, lengthThreshold);
+}
 
-    for (int cId : remCIds) {
+void DiskGrower::addLinksGridPoint(int pi, int pj, const vector<int>& cIds,
+    const vector<vector<int>>& plane, const vector<DPoint>& centers,
+    const vector<Point>& cps, vector<Link>& links, double lengthThreshold) const {
+
+    for (int cId : cIds) {
         int i = pi + cps[cId].i;
         int j = pj + cps[cId].j;
         if (i>=0 && j>=0 && i<n && j<n &&
                 plane[i][j] == -1) {
             double length = metric.ddist(Point(i, j), centers[cId]);
             //add links only under the maximum safe link length
-            if (length < lengthThreshold) {
-                chunkLinks.push_back(Link(i, j, cId));
+            if (length <= lengthThreshold) {
+                links.push_back(Link(i, j, cId));
             }
         }
     }

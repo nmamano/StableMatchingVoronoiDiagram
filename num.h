@@ -24,14 +24,16 @@ public:
     bool isInt() const;
     static bool isNum(const QString& str);
 
-    int toInt() const;
-    double toDouble() const;
-    string toStr() const;
-    QString toQstr() const;
+    int asInt() const;
+    double asDouble() const;
+    string asStr() const;
+    QString asQstr() const;
+
+    int round() const;
 
     bool operator==(const Num& rhs) const;
     friend ostream& operator<<(ostream& out, const Num& num) {
-        out << num.toStr();
+        out << num.asStr();
         return out;
     }
 

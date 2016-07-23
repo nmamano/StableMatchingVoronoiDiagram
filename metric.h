@@ -12,6 +12,7 @@ public:
     bool hasIntDists() const;
     double ddist(const Point& p, const Point& q) const;
     double ddist(const DPoint &p, const DPoint &q) const;
+    double ddist(const NPoint &p, const NPoint &q) const;
 
     int iSortValue(const Point& p, const Point& q) const;
     double dSortValue(const Point& p, const Point& q) const;

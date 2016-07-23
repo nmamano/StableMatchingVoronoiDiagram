@@ -2,6 +2,7 @@
 #include <vector>
 #include <math.h>
 #include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #include <QtWidgets>
 #include <math.h>
@@ -79,48 +80,60 @@ vector<int> centerQuotas(int n, int k) {
 }
 
 
-vector<Point> randomCenters(int n, int k)
+vector<NPoint> randomCenters(int n, int k, bool realCoords)
 {
-    vector<Point> centers(0);
+    vector<NPoint> centers(0);
     for (int i = 0; i < k; i++) {
-        Point p;
-        do {
-            p = randomPoint(n);
-        } while (contains(centers, p));
+        NPoint p;
+        if (realCoords) p = randomPoint(n, realCoords);
+        else {
+            do {
+                p = randomPoint(n, realCoords);
+            } while (contains(centers, p));
+        }
         centers.push_back(p);
     }
     return centers;
 }
 
-bool contains(const vector<Point>& ps, const Point& p)
+vector<Point> intPoints(const vector<NPoint>& points) {
+    int n = points.size();
+    vector<Point> res(n);
+    for (int i = 0; i < n; i++) {
+        NPoint p = points[i];
+        res[i] = Point(p.i.asInt(), p.j.asInt());
+    }
+    return res;
+}
+
+vector<DPoint> doublePoints(const vector<NPoint>& points) {
+    int n = points.size();
+    vector<DPoint> res(n);
+    for (int i = 0; i < n; i++) {
+        NPoint p = points[i];
+        res[i] = DPoint(p.i.asDouble(), p.j.asDouble());
+    }
+    return res;
+}
+
+bool contains(const vector<NPoint>& ps, const NPoint& q)
 {
-    for (const Point& q : ps) if (q == p) return true;
+    for (const NPoint& p : ps) if (p == q) return true;
     return false;
 }
 
-Point randomPoint(int n)
+bool areEqual(const vector<NPoint>& v1, const vector<NPoint>& v2) {
+    for (int i = 0; i < (int)v1.size(); i++) {
+        if (v1[i] != v2[i]) return false;
+    }
+    return true;
+}
+
+NPoint randomPoint(int n, bool realCoords)
 {
-    return Point(qrand()%n, qrand()%n);
-}
-
-vector<Point> centroids(const vector<vector<int>>& plane,
-                        int k) {
-    vector<Point> centroids(k);
-    vector<vector<Point>> points = pointsByCenter(plane, k);
-    for (int i = 0; i < k; i++) {
-        centroids[i] = centroid(points[i]);
-    }
-    return centroids;
-}
-
-Point centroid(const vector<Point>& points) {
-    double iSum = 0, jSum = 0;
-    for (const Point& p : points) {
-        iSum += p.i;
-        jSum += p.j;
-    }
-    int count = points.size();
-    return Point(round(iSum/count), round(jSum/count));
+    if (!realCoords) return NPoint(qrand()%n, qrand()%n);
+    double qrandMax = (double)RAND_MAX;
+    return NPoint(qrand()/qrandMax*(n-1), qrand()/qrandMax*(n-1));
 }
 
 /** Returns the list of points assigned to each center */
@@ -139,61 +152,67 @@ vector<vector<Point>> pointsByCenter(const vector<vector<int>>& plane,
     return res;
 }
 
-vector<Point> weightedCentroids(
+vector<NPoint> weightedCentroids(
         const vector<vector<int>>& plane,
-        int k, const vector<Point>& centers, Metric metric, Num weightExp) {
-    vector<Point> centroids(k);
+        const vector<NPoint>& centers,
+        Metric metric, Num weightExp, bool realCentroids) {
+
+    int k = centers.size();
+    vector<NPoint> centroids(k);
     vector<vector<Point>> points = pointsByCenter(plane, k);
     for (int i = 0; i < k; i++) {
-        centroids[i] = weightedCentroid(points[i], centers[i], metric, weightExp);
+        centroids[i] = weightedCentroid(points[i], centers[i], metric, weightExp, realCentroids);
     }
     return centroids;
 }
 
-Point weightedCentroid(const vector<Point>& points,
-        const Point& center, Metric metric, Num weightExp) {
+NPoint weightedCentroid(const vector<Point>& points,
+        const NPoint& center, Metric metric, Num weightExp, bool realCentroids) {
+
     if (weightExp.isInf()) {
+        //should return the circumcentre
         throw runtime_error("not implemented yet");
     }
+
     double iSum = 0, jSum = 0, totalWeight = 0;
     for (const Point& p : points) {
-        double dis = metric.ddist(p, center);
+        double dis = metric.ddist(NPoint(p), center);
         if (dis == 0 && weightExp.val < 0) continue;
         double pWeight = pow(dis, weightExp.val);
         iSum += p.i*pWeight;
         jSum += p.j*pWeight;
         totalWeight += pWeight;
     }
-    return Point(round(iSum/totalWeight), round(jSum/totalWeight));
+    NPoint centroid(iSum/totalWeight, jSum/totalWeight);
+    if (realCentroids) return centroid;
+    else return NPoint(centroid.i.round(), centroid.j.round());
 }
 
-
-
 double avgDistPointCenter(const vector<vector<int> > &plane,
-        const vector<Point> &centers, Metric metric) {
+        const vector<NPoint> &centers, Metric metric) {
     int n = plane.size();
-    double dis_sum = 0;
+    double disSum = 0;
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            int c_id = plane[i][j];
-            if (c_id == -1) cout<<"Error: unassigned point"<<endl;
-            Point c = centers[c_id];
-            dis_sum += metric.ddist(Point(i, j), c);
+            int cId = plane[i][j];
+            if (cId == -1) cout<<"Error avg dist: unassigned point"<<endl;
+            NPoint c = centers[cId];
+            disSum += metric.ddist(NPoint(i, j), c);
         }
     }
-    return dis_sum/(n*n);
+    return disSum/(n*n);
 }
 
 double avgDistCenterCentroid(const vector<vector<int> > &plane,
-        const vector<Point> &centers, Metric metric, Num weightExp)
+        const vector<NPoint> &centers, Metric metric, Num weightExp, bool realCentroids)
 {
     int k = centers.size();
-    vector<Point> ctrds = weightedCentroids(plane, k, centers, metric, weightExp);
-    double dis_sum = 0;
+    vector<NPoint> ctrds = weightedCentroids(plane, centers, metric, weightExp, realCentroids);
+    double disSum = 0;
     for (int i = 0; i < k; i++) {
-        dis_sum += metric.ddist(centers[i], ctrds[i]);
+        disSum += metric.ddist(centers[i], ctrds[i]);
     }
-    return dis_sum/k;
+    return disSum/k;
 }
 
 int numAssignedPoints(const vector<vector<int> > &plane)

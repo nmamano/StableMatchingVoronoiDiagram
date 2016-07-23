@@ -38,9 +38,10 @@ void MainWindow::about()
            "\n"
            "Features:\n"
            "- Add, remove, or move centers with mouse.\n"
-           "- Move centers to centroids.\n"
+           "- Integer or real valued centers.\n"
+           "- Move centers to weighted centroids.\n"
            "- Show centroids, statistics, and ideal perimeters.\n"
-           "- Support for Euclidean, Manhattan, and Chebyshev distances.\n"
+           "- Support for any distance in the L norm family.\n"
            "- Simulate matching algorithm step by step.\n"));
 }
 
@@ -59,7 +60,7 @@ void MainWindow::changeCenters()
     bool ok;
     int newNum = QInputDialog::getInt(this, tr("Centers"),
         tr("Select number of centers:"),
-        planeDisplay->getNumCenters(),
+        planeDisplay->numCenters(),
         1, planeDisplay->numPoints(), 1, &ok);
 
     if (ok) planeDisplay->setRandomCenters(newNum);
@@ -72,7 +73,7 @@ void MainWindow::changeCentroidWeight()
     QString newWeight = QInputDialog::getText(this, tr("Centroid weight"),
            tr("Select centroid weight (a real number)"),
            QLineEdit::Normal,
-           planeDisplay->getCentroidWeight(),
+           planeDisplay->getCentroidWeight().asQstr(),
            &ok);
     if (ok && Num::isNum(newWeight)) {
         Num weight = Num(newWeight);
@@ -87,7 +88,7 @@ void MainWindow::changeMetric()
     QString newMetric = QInputDialog::getText(this, tr("Centroid weight"),
            tr("Select metric (a real number >= 1 or 'inf')"),
            QLineEdit::Normal,
-           planeDisplay->getCentroidWeight(),
+           planeDisplay->getMetric().asQstr(),
            &ok);
     if (ok && Num::isNum(newMetric)) {
         Num l(newMetric);
@@ -119,11 +120,25 @@ void MainWindow::showStatistics(bool show)
 
 void MainWindow::showIdealPerimeter(bool show)
 {
+    if (show && otherMetricAct->isChecked()) {
+        QMessageBox::information(
+            this,
+            tr("Stable grid matching"),
+            tr("The ideal perimeters are only visible for metrics L_2, L_1, and L_infinity."));
+
+    }
     planeDisplay->setShowIdealPerimeter(show);
 }
 
 void MainWindow::showConstrStep()
 {
+    if (planeDisplay->usingRealCenters()) {
+        QMessageBox::information(
+            this,
+            tr("Stable grid matching"),
+            tr("Select integer centers to see the construction steps."));
+        return;
+    }
     planeDisplay->showConstrStep();
 }
 
@@ -143,12 +158,12 @@ void MainWindow::setL1Metric()
 
 void MainWindow::setRealCenters()
 {
-
+    planeDisplay->setRealCenters(true);
 }
 
 void MainWindow::setDiscreteCenters()
 {
-
+    planeDisplay->setRealCenters(false);
 }
 
 void MainWindow::setL2Metric()
@@ -238,10 +253,12 @@ void MainWindow::createActions()
     discreteCentersAct = new QAction(tr("Discrete centers"), this);
     discreteCentersAct->setCheckable(true);
     connect(discreteCentersAct, SIGNAL(triggered()), this, SLOT(setDiscreteCenters()));
+    discreteCentersAct->setShortcut(Qt::Key_D);
 
     realCentersAct = new QAction(tr("Real centers"), this);
     realCentersAct->setCheckable(true);
     connect(realCentersAct, SIGNAL(triggered()), this, SLOT(setRealCenters()));
+    realCentersAct->setShortcut(Qt::Key_R);
 
     centerType = new QActionGroup(this);
     centerType->addAction(discreteCentersAct);

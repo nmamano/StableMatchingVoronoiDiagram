@@ -25,24 +25,30 @@ bool Num::isInt() const {
     return val != DINF && floor(val) == val;
 }
 
-int Num::toInt() const {
+int Num::asInt() const {
     if (!isInt()) throw runtime_error("is not int");
     return (int)floor(val);
 }
 
-double Num::toDouble() const {
+double Num::asDouble() const {
     if (val == DINF) throw runtime_error("Is infinity");
     return val;
 }
 
-string Num::toStr() const {
+string Num::asStr() const {
     if (val == DINF) return SINF;
-    if (isInt()) return to_string(toInt());
+    if (isInt()) return to_string(asInt());
     return to_string(val);
 }
 
-QString Num::toQstr() const {
-    return QString::fromStdString(toStr());
+QString Num::asQstr() const {
+    return QString::fromStdString(asStr());
+}
+
+int Num::round() const
+{
+    if (isInf()) throw runtime_error("is infinity");
+    return std::round(val);
 }
 
 bool Num::isNum(const QString &str) {

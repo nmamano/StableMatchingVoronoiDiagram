@@ -1,6 +1,5 @@
 #ifndef POINT_H
 #define POINT_H
-#include <vector>
 #include <iostream>
 #include "dpoint.h"
 using namespace std;
@@ -19,7 +18,9 @@ public:
         out << "(" << p.i << "," << p.j << ")";
         return out;
     }
-    operator DPoint(){return DPoint(i,j);}
+    operator DPoint() const {return DPoint(i,j);}
+    operator NPoint() const {return NPoint(i,j);}
+
 };
 
 

@@ -1,7 +1,8 @@
 #ifndef DPOINT_H
 #define DPOINT_H
-#include <vector>
+
 #include <iostream>
+#include "npoint.h"
 
 using namespace std;
 
@@ -9,7 +10,7 @@ class DPoint
 {
 public:
     double i, j;
-    DPoint(int i, int j): i(i), j(j) {}
+    DPoint(double i, double j): i(i), j(j) {}
     DPoint(): i(-1), j(-1) {}
     bool operator==(const DPoint& rhs) const {
         return i == rhs.i and j == rhs.j;
@@ -18,6 +19,8 @@ public:
         out << "(" << p.i << "," << p.j << ")";
         return out;
     }
+    operator NPoint() const {return NPoint(i,j);}
+
 };
 
 #endif // DPOINT_H

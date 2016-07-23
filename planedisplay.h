@@ -5,39 +5,47 @@
 #include <vector>
 #include <iostream>
 #include "num.h"
+#include "npoint.h"
 #include "matchingutils.h"
 #include "diskgrower.h"
+
+using namespace std;
 
 class PlaneDisplay : public QWidget
 {
     Q_OBJECT
 public:
-    PlaneDisplay(int n = 300, int k = 40, QWidget *parent = 0);
+    PlaneDisplay(int n = 50, int k = 10, QWidget *parent = 0);
 
+    //logic
     void setGridSize(int newN);
-    void setRandomCenters(int numCenters);
-    void addCenter(const Point& newCenter);
-    void removeCenter(int center_id);
+    int getGridSize() const { return n; }
+    int numPoints() const { return n*n; }
+
+    void setRealCenters(bool useRealCenters);
+    bool usingRealCenters() const { return realCenters; }
+    void setRandomCenters(int newNumCenters);
+    void addCenter(const NPoint &newCenter);
+    void removeCenter(int cId);
+    int numCenters() const { return centers.size(); }
+
+    void setCentroidWeight(Num weight);
+    Num getCentroidWeight() const { return centroidWeight; }
+
     void moveCentersToCentroids();
 
-    bool saveImage(const QString &fileName, const char *fileFormat);
+    void setMetric(Metric metric);
+    Metric getMetric() { return matcher.getMetric(); }
+
+    //gui
+    bool saveImage(const QString &fileName, const char *fileFormat) const;
 
     void setShowCentroids(bool show);
     void setShowStatistics(bool show);
     void setShowIdealPerimeter(bool show);
 
-    int getGridSize() { return n; }
-    int getNumCenters() { return centers.size(); }
-    QString getCentroidWeight() { return centroidWeight.toQstr(); }
-    int numPoints();
-
-    void setMetric(Metric metric);
-
     void showConstrStep();
 
-    void setCentroidWeight(Num weight);
-
-public slots:
 protected:
 
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
@@ -47,12 +55,29 @@ protected:
     void resizeEvent(QResizeEvent *event) Q_DECL_OVERRIDE;
 
 private:
-    void printScene();
-    void refreshScene();
+    //logic
+    int n;
+    vector<vector<int>> plane;
+    DiskGrower matcher;
+    void updateRegions();
+
+    vector<NPoint> centers;
+    bool realCenters;
+    void moveCentersToNearestLatticePoint();
+
+    Num centroidWeight;
+    int numCentroidMoves;
+
+    void toggleCenter(QPoint qp);
+    void moveCenter(int cId, NPoint p);
+    NPoint randomAdjacentPoint(const NPoint &p);
+
+    //GUI
+    QImage image;
 
     void initRegionColors();
-    std::vector<QColor> region_colors;
-    QColor centerColor(int centerId);
+    vector<QColor> regionColors;
+    QColor centerColor(int centerId) const;
 
     const int CENTER_RAD = 5;
     const int CENTROID_RAD = 3;
@@ -61,57 +86,47 @@ private:
     QColor EMPTY_COLOR;
     QColor BOUNDARY_COLOR;
 
-    int n;
-    std::vector<std::vector<int>> plane;
-    std::vector<Point> centers;
+    //printing
+    void printScene();
+    void refreshScene();
 
-    QPoint point2QPoint(Point p);\
-    Point QPointToPoint(QPoint p);
-    int cellPixSize();
-
-    void printGrid();
+    void printLatticePoints();
     void printCenters();
-    void printRegions(const vector<vector<int> > &curr_plane);
+    void printBoundaries();
 
-    DiskGrower matcher;
-    void updateRegions();
-
-    bool moving;
-    bool moved;
-    QImage image;
-    QPoint lastPoint;
-
-    bool shouldPrintCentroids;
-    bool shouldPrintStatistics;
-    bool shouldPrintIdealPerimeter;
-
-    void toggleCenter(QPoint qp);
+    void printRegions(const vector<vector<int> > &currPlane);
 
     void printCentroids();
-    Point randomAdjacentPoint(const Point &p);
-    int selectedCenter(QPoint qp);
+    bool shouldPrintCentroids;
 
-    int selected_cid;
-
-    void moveCenter(int c_id, Point p);
     void printStatistics();
-    int numLines(const string &s);
-    string longestLine(const string &s);
+    bool shouldPrintStatistics;
+    void printBoxedText(string s);
+    static int numLines(const string &s);
+    static string longestLine(const string &s);
 
+    void printIdealPerimeters();
+    bool shouldPrintIdealPerimeter;
+    static double areaToRad(double area);
+    static double areaToSquareDiag(double area);
+
+    void printConstrScene();
     vector<vector<int>> constrPlane;
     int constrIter;
 
-    void printConstrScene();
-    void printIdealPerimeters();
-    double areaToRad(double area);
-    double areaToSquareDiag(double area);
+    QPoint npoint2QPoint(NPoint p) const;
+    QPointF npoint2QPointf(NPoint p) const;
+    NPoint qpointToNPoint(QPoint qp, bool realPoint) const;
+    int cellPixSize() const;
+    double dcellPixSize() const;
 
-    Num centroidWeight;
-    int moveCentersIter;
+    //mouse
+    bool mouseMoving;
+    bool mouseMoved;
+    QPoint lastPointPointedByMouse;
 
-    void printBoxedText(string s);
-    void printBoundaries();
-signals:
+    int selectedCenter(QPoint qp);
+    int selectedCId;
 
 };
 

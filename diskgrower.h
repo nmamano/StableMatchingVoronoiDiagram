@@ -12,7 +12,9 @@ class DiskGrower
 {
 public:
     DiskGrower(int n, Metric metric = Num(2));
-    vector<vector<int>> query(const vector<Point>& centers, double cutoff = 0.005) const;
+
+    vector<vector<int>> realCentersQuery(const vector<DPoint> &centers) const;
+    vector<vector<int>> intCentersQuery( const vector<Point>  &centers, double cutoff = 0.005) const;
     void incrementalMatching(const vector<Point> &centers, vector<vector<int> > &plane,
                              vector<int> &quotas, double cutoff, int &iter) const;
 
@@ -24,7 +26,6 @@ public:
     void step(vector<vector<int>> &plane, const vector<Point> &centers, int iter);
     void initEmpty(vector<vector<int> > &plane, vector<int> &quotas, int k) const;
 
-    vector<vector<int> > query(const vector<DPoint> &centers) const;
 private:
     int n;
     Metric metric;
@@ -34,11 +35,11 @@ private:
     void buildP();
 
 
-    void innerLoop(int pi, int pj,
+    void processGridPoint(int pi, int pj,
             const vector<int>& remCIds, const vector<Point>& centers,
             vector<vector<int>>& plane, vector<int>& quotas) const;
 
-    void middleLoop(int i, int j,
+    void processPPoint(int i, int j,
             const vector<int> &remCIds, const vector<Point> &centers,
             vector<vector<int> > &plane, vector<int> &quotas) const;
 
@@ -57,7 +58,8 @@ private:
 
 
     void sortLinks(vector<Link> &links, const vector<DPoint> &centers) const;
-    void addLinks(int pi, int pj, const vector<int> &remCIds, const vector<vector<int> > &plane, const vector<DPoint> &centers, const vector<Point> &cps, vector<Link> &chunkLinks, double lengthThreshold) const;
+    void addLinksGridPoint(int pi, int pj, const vector<int> &cIds, const vector<vector<int> > &plane, const vector<DPoint> &centers, const vector<Point> &cps, vector<Link> &links, double lengthThreshold) const;
+    void addLinksPPoint(int i, int j, const vector<int> &cIds, const vector<vector<int> > &plane, const vector<DPoint> &centers, const vector<Point> &cps, vector<Link> &links, double lengthThreshold) const;
 };
 
 #endif // DISKGROWER_H

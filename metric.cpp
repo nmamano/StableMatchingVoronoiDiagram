@@ -21,6 +21,14 @@ double Metric::ddist(const DPoint &p, const DPoint &q) const {
     return distLGen(p, q);
 }
 
+double Metric::ddist(const NPoint &p, const NPoint &q) const
+{
+    if (p.i.isInf() || p.j.isInf() || q.i.isInf() || q.j.isInf()) {
+        throw runtime_error("coords are infinite");
+    }
+    return ddist(DPoint(p.i.asDouble(), p.j.asDouble()), DPoint(q.i.asDouble(), q.j.asDouble()));
+}
+
 double Metric::dSortValue(const Point &p, const Point &q) const {
     if (val == 2) return distL2Squared(p, q);
     if (isInf()) return distLInf(p, q);
@@ -55,8 +63,8 @@ int Metric::iSortValue(const Point &p, const Point &q) const {
 }
 
 double Metric::iSortValueGen(const Point &p, const Point& q) const {
-    int i = ipow(abs(p.i-q.i), toInt());
-    int j = ipow(abs(p.j-q.j), toInt());
+    int i = ipow(abs(p.i-q.i), asInt());
+    int j = ipow(abs(p.j-q.j), asInt());
     return i+j;
 }
 

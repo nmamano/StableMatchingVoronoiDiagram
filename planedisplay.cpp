@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <utility>
 #include <iomanip>
 #include "metric.h"
 
@@ -13,54 +14,63 @@ PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
     n(n), matcher(n)
 {
     setAttribute(Qt::WA_StaticContents);
-    moving = false;
+    mouseMoving = false;
     POINT_COLOR = QColor(qRgb(0, 0, 0));
     EMPTY_COLOR = QColor(qRgb(255, 255, 255));
     BOUNDARY_COLOR = QColor(qRgb(0, 0, 0));
 
     initRegionColors();
 
-    centers = randomCenters(n, k);
-    plane = matcher.query(centers);
+    realCenters = false;
+    centers = randomCenters(n, k, realCenters);
+    updateRegions();
 
     shouldPrintCentroids = true;
     shouldPrintStatistics = true;
     shouldPrintIdealPerimeter = false;
 
-    selected_cid = -1;
+    selectedCId = -1;
 
     constrIter = -1;
-    moveCentersIter = 0;
+    numCentroidMoves = 0;
 }
 
+void PlaneDisplay::updateRegions() {
+    if (realCenters) {
+        vector<DPoint>dcenters = doublePoints(centers);
+        plane = matcher.realCentersQuery(dcenters);
+    } else {
+        plane = matcher.intCentersQuery(intPoints(centers));
+    }
+}
 
 void PlaneDisplay::initRegionColors() {
-    region_colors.push_back(QColor(qRgb(240,163,255)));
-    region_colors.push_back(QColor(qRgb(0,117,220)));
-    region_colors.push_back(QColor(qRgb(153,63,0)));
-    region_colors.push_back(QColor(qRgb(76,0,92)));
-    region_colors.push_back(QColor(qRgb(25,25,25)));
-    region_colors.push_back(QColor(qRgb(0,92,49)));
-    region_colors.push_back(QColor(qRgb(43,206,72)));
-    region_colors.push_back(QColor(qRgb(255,204,153)));
-    region_colors.push_back(QColor(qRgb(128,128,128)));
-    region_colors.push_back(QColor(qRgb(148,255,181)));
-    region_colors.push_back(QColor(qRgb(143,124,0)));
-    region_colors.push_back(QColor(qRgb(157,204,0)));
-    region_colors.push_back(QColor(qRgb(194,0,136)));
-    region_colors.push_back(QColor(qRgb(0,51,128)));
-    region_colors.push_back(QColor(qRgb(255,164,5)));
-    region_colors.push_back(QColor(qRgb(255,168,187)));
-    region_colors.push_back(QColor(qRgb(66,102,0)));
-    region_colors.push_back(QColor(qRgb(255,0,16)));
-    region_colors.push_back(QColor(qRgb(94,241,242)));
-    region_colors.push_back(QColor(qRgb(0,153,143)));
-    region_colors.push_back(QColor(qRgb(224,255,102)));
-    region_colors.push_back(QColor(qRgb(116,10,255)));
-    region_colors.push_back(QColor(qRgb(153,0,0)));
-    region_colors.push_back(QColor(qRgb(255,255,128)));
-    region_colors.push_back(QColor(qRgb(255,255,0)));
-    region_colors.push_back(QColor(qRgb(255,80,5)));
+    regionColors.push_back(QColor(qRgb(240,163,255)));
+    regionColors.push_back(QColor(qRgb(0,117,220)));
+    regionColors.push_back(QColor(qRgb(153,63,0)));
+    regionColors.push_back(QColor(qRgb(76,0,92)));
+    regionColors.push_back(QColor(qRgb(25,25,25)));
+    regionColors.push_back(QColor(qRgb(0,92,49)));
+    regionColors.push_back(QColor(qRgb(43,206,72)));
+    regionColors.push_back(QColor(qRgb(255,204,153)));
+    regionColors.push_back(QColor(qRgb(128,128,128)));
+    regionColors.push_back(QColor(qRgb(148,255,181)));
+    regionColors.push_back(QColor(qRgb(143,124,0)));
+    regionColors.push_back(QColor(qRgb(157,204,0)));
+    regionColors.push_back(QColor(qRgb(194,0,136)));
+    regionColors.push_back(QColor(qRgb(0,51,128)));
+    regionColors.push_back(QColor(qRgb(255,164,5)));
+    regionColors.push_back(QColor(qRgb(255,168,187)));
+    regionColors.push_back(QColor(qRgb(66,102,0)));
+    regionColors.push_back(QColor(qRgb(255,0,16)));
+    regionColors.push_back(QColor(qRgb(94,241,242)));
+    regionColors.push_back(QColor(qRgb(0,153,143)));
+    regionColors.push_back(QColor(qRgb(224,255,102)));
+    regionColors.push_back(QColor(qRgb(116,10,255)));
+    regionColors.push_back(QColor(qRgb(153,0,0)));
+    regionColors.push_back(QColor(qRgb(255,255,128)));
+    regionColors.push_back(QColor(qRgb(255,255,0)));
+    regionColors.push_back(QColor(qRgb(255,80,5)));
 }
 
 void PlaneDisplay::setGridSize(int newN)
@@ -69,89 +79,121 @@ void PlaneDisplay::setGridSize(int newN)
     if (newN < 2) return;
     matcher.setN(newN);
     n = newN;
-    vector<Point> newCenters(0);
-    for (const Point& c : centers) {
-        if (c.i < n and c.j < n)
+    vector<NPoint> newCenters(0);
+    for (const NPoint& c : centers) {
+        if (c.di() <= n-1 and c.dj() <= n-1)
             newCenters.push_back(c);
     }
     if (newCenters.empty()) {
         //at least one center
-        newCenters = randomCenters(n, 1);
+        newCenters = randomCenters(n, 1, realCenters);
     }
     centers = newCenters;
-    moveCentersIter = 0;
+    numCentroidMoves = 0;
     printScene();
+}
+
+void PlaneDisplay::setRealCenters(bool useRealCenters)
+{
+    if (useRealCenters == realCenters) return;
+    realCenters = useRealCenters;
+    if (!realCenters) {
+        moveCentersToNearestLatticePoint();
+    }
+    numCentroidMoves = 0;
+    printScene();
+}
+
+void PlaneDisplay::moveCentersToNearestLatticePoint() {
+    vector<NPoint> newCenters(0);
+    for (int i = 0; i < numCenters(); i++) {
+        NPoint p(centers[i].i.round(), centers[i].j.round());
+        while (contains(newCenters, p)) {
+            p = randomAdjacentPoint(p);
+        }
+        newCenters.push_back(p);
+    }
+    centers = newCenters;
 }
 
 void PlaneDisplay::setMetric(Metric metric)
 {
     if (matcher.getMetric() == metric) return;
     matcher.setMetric(metric);
-    moveCentersIter = 0;
+    numCentroidMoves = 0;
     printScene();
 }
 
 void PlaneDisplay::showConstrStep()
 {
+    if (realCenters) return;
+
     if (constrIter == -1 or
             numAssignedPoints(constrPlane) == n*n) {
         constrPlane = vector<vector<int>> (n, vector<int> (n, -1));
         constrIter = 0;
     }
-    matcher.step(constrPlane, centers, constrIter);
+    matcher.step(constrPlane, intPoints(centers), constrIter);
     constrIter++;
     printConstrScene();
 }
 
-void PlaneDisplay::setRandomCenters(int numCenters) {
-    centers = randomCenters(n, numCenters);
-    moveCentersIter = 0;
+void PlaneDisplay::setRandomCenters(int newNumCenters) {
+    centers = randomCenters(n, newNumCenters, realCenters);
+    numCentroidMoves = 0;
     printScene();
 }
 
-void PlaneDisplay::addCenter(const Point &newCenter)
+void PlaneDisplay::addCenter(const NPoint &newCenter)
 {
-    if (contains(centers, newCenter)) return;
+    if (!realCenters && contains(centers, newCenter)) return;
     centers.push_back(newCenter);
-    moveCentersIter = 0;
+    numCentroidMoves = 0;
     printScene();
 }
 
-void PlaneDisplay::removeCenter(int center_id)
+void PlaneDisplay::removeCenter(int cId)
 {
     if (centers.size() == 1) return;
-    centers.erase(centers.begin()+center_id);
-    moveCentersIter = 0;
+    centers[cId] = centers[numCenters()-1];
+    centers.pop_back();
+    numCentroidMoves = 0;
     printScene();
 }
 
-Point PlaneDisplay::randomAdjacentPoint(const Point& p) {
+NPoint PlaneDisplay::randomAdjacentPoint(const NPoint& p) {
     int dir = qrand()%2;
     int offset = dir == 0? 1 : -1;
     int coord = qrand()%2;
-    if (coord == 0) return Point(p.i+offset, p.j);
-    return Point(p.i, p.j+offset);
+    if (coord == 0) return NPoint(p.di()+offset, p.dj());
+    return NPoint(p.di(), p.dj()+offset);
 }
 
 void PlaneDisplay::moveCentersToCentroids()
 {
-    cout << "move centers to centroids " << endl;
-    int k = centers.size();
-    vector<Point> ctroids = weightedCentroids(plane, k, centers, matcher.getMetric(), centroidWeight);
-    centers = vector<Point> (0);
-    for (Point p : ctroids) {
-        while (contains(centers, p)) {
+    vector<NPoint> ctroids = weightedCentroids(plane, centers, matcher.getMetric(), centroidWeight, realCenters);
+    if (areEqual(centers, ctroids)) {
+        QMessageBox::information(
+            this,
+            tr("Stable grid matching"),
+            tr("The centers have converged."));
+        return;
+    }
+
+    centers = vector<NPoint> (0);
+    for (NPoint p : ctroids) {
+        while (!realCenters && contains(centers, p)) {
             p = randomAdjacentPoint(p);
         }
         centers.push_back(p);
     }
-    moveCentersIter++;
+    numCentroidMoves++;
     printScene();
 }
 
 int PlaneDisplay::selectedCenter(QPoint qp) {
-    for (int i = 0; i < (int)centers.size(); i++) {
-        QPoint cqp = point2QPoint(centers[i]);
+    for (int i = 0; i < numCenters(); i++) {
+        QPoint cqp = npoint2QPoint(centers[i]);
         Metric eucMetric(2);
         double dis = eucMetric.ddist(Point(qp.x(), qp.y()), Point(cqp.x(), cqp.y()));
         if (dis <= CENTER_RAD) return i;
@@ -160,34 +202,31 @@ int PlaneDisplay::selectedCenter(QPoint qp) {
 }
 
 void PlaneDisplay::toggleCenter(QPoint qp) {
-    int c_id = selectedCenter(qp);
-    if (c_id == -1) {
-        Point p = QPointToPoint(qp);
-        if (p.i < 0 or p.i >= n or p.j < 0 or p.j >= n)
+    int cId = selectedCenter(qp);
+    if (cId == -1) {
+        NPoint p = qpointToNPoint(qp, realCenters);
+        if (p.di() < 0 or p.di() > n-1 or p.dj() < 0 or p.dj() > n-1)
             return;
         addCenter(p);
     } else {
-        removeCenter(c_id);
+        removeCenter(cId);
     }
 }
 
-void PlaneDisplay::moveCenter(int c_id, Point p) {
-    if (contains(centers, p)) return;
-    if (p.i < 0 or p.i >= n or p.j < 0 or p.j >= n)
-        return;
-    centers[c_id] = p;
-    moveCentersIter = 0;
+void PlaneDisplay::moveCenter(int cId, NPoint p) {
+    if (!realCenters && contains(centers, p)) return;
+    if (p.di() < 0 or p.di() > n-1 or p.dj() < 0 or p.dj() > n-1) return;
+    centers[cId] = p;
+    numCentroidMoves = 0;
     printScene();
 }
 
-bool PlaneDisplay::saveImage(const QString &fileName, const char *fileFormat)
-{
+bool PlaneDisplay::saveImage(const QString &fileName, const char *fileFormat) const {
     QImage visibleImage = image;
     return visibleImage.save(fileName, fileFormat);
 }
 
-void PlaneDisplay::setShowCentroids(bool show)
-{
+void PlaneDisplay::setShowCentroids(bool show) {
      if (shouldPrintCentroids == show) return;
      shouldPrintCentroids = show;
      refreshScene();
@@ -196,46 +235,41 @@ void PlaneDisplay::setShowCentroids(bool show)
 void PlaneDisplay::setCentroidWeight(Num weight) {
     if (centroidWeight == weight) return;
     centroidWeight = weight;
-    moveCentersIter = 0;
+    numCentroidMoves = 0;
     refreshScene();
 }
 
-void PlaneDisplay::setShowStatistics(bool show)
-{
+void PlaneDisplay::setShowStatistics(bool show) {
     if (shouldPrintStatistics == show) return;
     shouldPrintStatistics = show;
     refreshScene();
 }
 
-void PlaneDisplay::setShowIdealPerimeter(bool show)
-{
+void PlaneDisplay::setShowIdealPerimeter(bool show) {
     if (shouldPrintIdealPerimeter == show) return;
     shouldPrintIdealPerimeter = show;
     refreshScene();
 }
 
-void PlaneDisplay::printScene()
-{
+void PlaneDisplay::printScene() {
     constrIter = -1;
     updateRegions();
     refreshScene();
 }
 
 void PlaneDisplay::printConstrScene() {
-    image.fill(qRgb(255, 255, 240));
+    image.fill(qRgb(255, 255, 240)); //white bg
     printRegions(constrPlane);
-    if (n <= 50) printGrid();
+    if (n <= 50) printLatticePoints();
     printCenters();
     update();
 }
 
-void PlaneDisplay::refreshScene()
-{
-    cout << "refresh scene" << endl;
+void PlaneDisplay::refreshScene() {
     image.fill(qRgb(255, 255, 240));
     printRegions(plane);
     printBoundaries();
-    if (n <= 50) printGrid();
+    if (n <= 50) printLatticePoints();
     if (shouldPrintIdealPerimeter) printIdealPerimeters();
     printCenters();
     if (shouldPrintCentroids) printCentroids();
@@ -243,47 +277,53 @@ void PlaneDisplay::refreshScene()
     update();
 }
 
-QPoint PlaneDisplay::point2QPoint(Point p) {
-    int x = round(((double)p.i/n)*image.size().width());
-    int y = round(((double)p.j/n)*image.size().height());
+QPoint PlaneDisplay::npoint2QPoint(NPoint p) const {
+    int x = round((p.i.asDouble()/n)*image.size().width());
+    int y = round((p.j.asDouble()/n)*image.size().width());
     x += cellPixSize()/2;
     y += cellPixSize()/2;
     return QPoint(x,y);
 }
 
-Point PlaneDisplay::QPointToPoint(QPoint p)
-{
-    double dx = (double)(p.x()-cellPixSize()/2)/image.size().width();
-    double dy = (double)(p.y()-cellPixSize()/2)/image.size().height();
-    dx = round(dx*n);
-    dy = round(dy*n);
-    return Point(dx, dy);
+QPointF PlaneDisplay::npoint2QPointf(NPoint p) const {
+    double x = (p.i.asDouble()/n)*image.size().width();
+    double y = (p.j.asDouble()/n)*image.size().width();
+    x += dcellPixSize()/2;
+    y += dcellPixSize()/2;
+    return QPointF(x,y);
 }
 
-int PlaneDisplay::cellPixSize() {
+NPoint PlaneDisplay::qpointToNPoint(QPoint qp, bool realPoint) const {
+    double dx = ((double)(qp.x()-cellPixSize()/2))/image.size().width();
+    double dy = ((double)(qp.y()-cellPixSize()/2))/image.size().width();
+    dx *= n;
+    dy *= n;
+    if (realPoint) return NPoint(dx, dy);
+    else return NPoint(round(dx), round(dy));
+}
+
+int PlaneDisplay::cellPixSize() const {
     return image.size().width()/n;
 }
 
-QColor PlaneDisplay::centerColor(int centerId) {
-    return region_colors[centerId%region_colors.size()];
+double PlaneDisplay::dcellPixSize() const {
+    return ((double) image.size().width())/n;
+}
+
+QColor PlaneDisplay::centerColor(int centerId) const {
+    return regionColors[centerId%regionColors.size()];
 }
 
 int PlaneDisplay::numLines(const string& s) {
     int numlines = 0;
     for (char c : s) {
-        if (c == '\n') {
-            numlines++;
-        }
+        if (c == '\n') numlines++;
     }
     return numlines;
 }
 
 string PlaneDisplay::longestLine(const string& s) {
-    int width = 0;
-    int maxwidth = 0;
-    int linestartpos = 0;
-    int longestlinestartpos = 0;
-    int index = 0;
+    int width = 0, maxwidth = 0, linestartpos = 0, longestlinestartpos = 0, index = 0;
     for (char c : s) {
         if (c == '\n') {
             if (width > maxwidth) {
@@ -292,9 +332,7 @@ string PlaneDisplay::longestLine(const string& s) {
             }
             width = 0;
             linestartpos = index+1;
-        } else {
-            width++;
-        }
+        } else width++;
         index++;
     }
     return s.substr(longestlinestartpos, maxwidth);
@@ -320,59 +358,54 @@ void PlaneDisplay::printBoxedText(string s) {
 }
 
 void PlaneDisplay::printStatistics() {
-
     stringstream ss;
     ss << setprecision(3) << fixed;
     ss <<"Metric: L_"<<matcher.getMetric()<<endl;
     ss <<"Grid size: "<<n<<endl;
-    ss <<"Num centers: "<<centers.size()<<endl;
+    ss <<"Num ("<<(realCenters?"real":"integer")<<") centers: "<<centers.size()<<endl;
     Metric metric = matcher.getMetric();
     double d1 = avgDistPointCenter(plane, centers, metric);
-    ss <<"Iteration: "<<moveCentersIter<<endl;
+    ss <<"Iteration: "<<numCentroidMoves<<endl;
     ss <<"Point-center dist: "<<d1<<endl;
-    double d2 = avgDistCenterCentroid(plane, centers, metric, centroidWeight);
+    double d2 = avgDistCenterCentroid(plane, centers, metric, centroidWeight, realCenters);
     ss <<"Center-centroid dist: "<<d2<<endl;
-    ss <<"Weight (p): "<<centroidWeight.toStr()<<endl;
+    ss <<"Centroid weight (p): "<<centroidWeight.asStr()<<endl;
 
     string s = ss.str();
     printBoxedText(s);
 }
 
-void PlaneDisplay::printGrid()
-{
+void PlaneDisplay::printLatticePoints() {
     QPainter painter(&image);
     painter.setPen(POINT_COLOR);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            QPoint qp = point2QPoint(Point(i,j));
+            QPoint qp = npoint2QPoint(NPoint(i,j));
             painter.drawEllipse(qp, POINT_RAD, POINT_RAD);
         }
     }
 }
 
-void PlaneDisplay::printCenters()
-{
+void PlaneDisplay::printCenters() {
     QPainter painter(&image);
-    int k = centers.size();
+    int k = numCenters();
     for (int i = 0; i < k; i++) {
-        QPoint qp = point2QPoint(centers[i]);
+        QPoint qp = npoint2QPoint(centers[i]);
         painter.setPen(Qt::black);
         painter.setBrush(centerColor(i));
         painter.drawEllipse(qp, CENTER_RAD, CENTER_RAD);
     }
 }
 
-void PlaneDisplay::printCentroids()
-{
+void PlaneDisplay::printCentroids() {
     QPainter painter(&image);
-    int k = centers.size();
-    vector<Point> centrds = weightedCentroids(plane, k, centers, matcher.getMetric(), centroidWeight);
+    int k = numCenters();
+    vector<NPoint> ctrdois = weightedCentroids(plane, centers, matcher.getMetric(), centroidWeight, realCenters);
     for (int i = 0; i < k; i++) {
-        QPoint qp = point2QPoint(centrds[i]);
+        QPoint qp = npoint2QPoint(ctrdois[i]);
         painter.setPen(Qt::white);
         painter.setBrush(centerColor(i));
         painter.drawEllipse(qp, CENTROID_RAD, CENTROID_RAD);
-
     }
 }
 
@@ -388,12 +421,12 @@ double PlaneDisplay::areaToSquareDiag(double area) {
 
 void PlaneDisplay::printIdealPerimeters() {
     QPainter painter(&image);
-    int k = centers.size();
+    int k = numCenters();
     vector<int> quotas = centerQuotas(n, k);
-    for (int c_id = 0; c_id < k; c_id++) {
-        Point c = centers[c_id];
-        QPoint qc = point2QPoint(c);
-        double area = quotas[c_id];
+    for (int cId = 0; cId < k; cId++) {
+        NPoint c = centers[cId];
+        QPoint qc = npoint2QPoint(c);
+        double area = quotas[cId];
         Metric metric = matcher.getMetric();
         if (metric.val == 2) {
             double rad = areaToRad(area);
@@ -401,7 +434,7 @@ void PlaneDisplay::printIdealPerimeters() {
             painter.setPen(QPen(POINT_COLOR, 2));
             painter.drawEllipse(qc, qRad-2, qRad-2);
             painter.drawEllipse(qc, qRad+2, qRad+2);
-            painter.setPen(QPen(centerColor(c_id), 2));
+            painter.setPen(QPen(centerColor(cId), 2));
             painter.drawEllipse(qc, qRad, qRad);
         } else if (metric.val == 1) {
             double rad = areaToSquareDiag(area)/2;
@@ -417,7 +450,7 @@ void PlaneDisplay::printIdealPerimeters() {
             painter.drawConvexPolygon(pol);
             pol[0].rx()+=4; pol[1].ry()+=4; pol[2].rx()-=4; pol[3].ry()-=4;
             painter.drawConvexPolygon(pol);
-            painter.setPen(QPen(centerColor(c_id), 2));
+            painter.setPen(QPen(centerColor(cId), 2));
             pol[0].rx()-=2; pol[1].ry()-=2; pol[2].rx()+=2; pol[3].ry()+=2;
             painter.drawConvexPolygon(pol);
         } else if (metric.isInf()) {
@@ -427,7 +460,7 @@ void PlaneDisplay::printIdealPerimeters() {
             painter.setPen(QPen(POINT_COLOR, 2));
             painter.drawRect(x-2, y-2, qSide+4, qSide+4);
             painter.drawRect(x+2, y+2, qSide-4, qSide-4);
-            painter.setPen(QPen(centerColor(c_id), 2));
+            painter.setPen(QPen(centerColor(cId), 2));
             painter.drawRect(x, y, qSide, qSide);
         } else {
             //not available
@@ -435,24 +468,19 @@ void PlaneDisplay::printIdealPerimeters() {
     }
 }
 
-void PlaneDisplay::updateRegions() {
-    cout << "update regions" << endl;
-    plane = matcher.query(centers);
-}
-
-void PlaneDisplay::printRegions(const vector<vector<int>>& curr_plane)
+void PlaneDisplay::printRegions(const vector<vector<int>>& currPlane)
 {
     QPainter painter(&image);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            QPoint qp = point2QPoint(Point(i,j));
-            int center_id = curr_plane[i][j];
-            if (center_id == -1) {
+            QPoint qp = npoint2QPoint(NPoint(i,j));
+            int cId = currPlane[i][j];
+            if (cId == -1) {
                 painter.setPen(EMPTY_COLOR);
                 painter.setBrush(EMPTY_COLOR);
             } else {
-                painter.setPen(centerColor(center_id));
-                painter.setBrush(centerColor(center_id));
+                painter.setPen(centerColor(cId));
+                painter.setBrush(centerColor(cId));
             }
             int r = cellPixSize();
             painter.drawRect(qp.x() - r/2, qp.y() - r/2, r, r);
@@ -464,76 +492,69 @@ void PlaneDisplay::printBoundaries() {
     QPainter painter(&image);
     painter.setPen(BOUNDARY_COLOR);
     painter.setBrush(BOUNDARY_COLOR);
-    int r = cellPixSize();
-    for (int i = 0; i < n-1; i++) {
+    double r = dcellPixSize();
+    for (int i = 0; i < n; i++) {
         for (int j = 0; j < n-1; j++) {
-            QPoint qp = point2QPoint(Point(i, j));
+            QPointF qp = npoint2QPointf(NPoint(i, j));
             if (plane[i][j] != plane[i][j+1]) {
-                QPoint left(qp.x()-r/2, qp.y()+r/2);
-                QPoint right(qp.x()+r/2, qp.y()+r/2);
+                QPointF left(qp.x()-r/2, qp.y()+r/2);
+                QPointF right(qp.x()+r/2, qp.y()+r/2);
                 painter.drawLine(left, right);
             }
+        }
+    }
+    for (int i = 0; i < n-1; i++) {
+        for (int j = 0; j < n; j++) {
+            QPointF qp = npoint2QPointf(NPoint(i, j));
             if (plane[i][j] != plane[i+1][j]) {
-                QPoint top(qp.x()+r/2, qp.y()-r/2);
-                QPoint bottom(qp.x()+r/2, qp.y()+r/2);
+                QPointF top(qp.x()+r/2, qp.y()-r/2);
+                QPointF bottom(qp.x()+r/2, qp.y()+r/2);
                 painter.drawLine(top, bottom);
             }
         }
     }
 }
 
-void PlaneDisplay::mousePressEvent(QMouseEvent *event)
-{
+void PlaneDisplay::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
-        selected_cid = selectedCenter(event->pos());
-        lastPoint = event->pos();
-        moving = true;
-        moved = false;
+        selectedCId = selectedCenter(event->pos());
+        lastPointPointedByMouse = event->pos();
+        mouseMoving = true;
+        mouseMoved = false;
     }
 }
 
-void PlaneDisplay::mouseMoveEvent(QMouseEvent *event)
-{
-    if ((event->buttons() & Qt::LeftButton) && moving) {
-        if (selected_cid != -1) {
-            moveCenter(selected_cid, QPointToPoint(event->pos()));
-            moved = true;
+void PlaneDisplay::mouseMoveEvent(QMouseEvent *event) {
+    if ((event->buttons() & Qt::LeftButton) && mouseMoving) {
+        if (selectedCId != -1) {
+            moveCenter(selectedCId, qpointToNPoint(event->pos(), realCenters));
+            mouseMoved = true;
         }
     }
 }
 
-void PlaneDisplay::mouseReleaseEvent(QMouseEvent *event)
-{
-    if (event->button() == Qt::LeftButton && moving) {
-        if (not moved) {
+void PlaneDisplay::mouseReleaseEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton && mouseMoving) {
+        if (not mouseMoved) {
             toggleCenter(event->pos());
         }
-        selected_cid = -1;
-        moving = false;
-        moved = false;
+        selectedCId = -1;
+        mouseMoving = false;
+        mouseMoved = false;
     }
 }
 
-void PlaneDisplay::paintEvent(QPaintEvent *event)
-{
+void PlaneDisplay::paintEvent(QPaintEvent *event) {
     QPainter painter(this);
     QRect dirtyRect = event->rect();
     painter.drawImage(dirtyRect, image, dirtyRect);
 }
 
-void PlaneDisplay::resizeEvent(QResizeEvent *event)
-{
+void PlaneDisplay::resizeEvent(QResizeEvent *event) {
     int sideLength = qMin(width(), height());
-    //if (abs(sideLength-image.size().width()) < 5) return;
     QSize newSize(sideLength, sideLength);
     QImage newImage(newSize, QImage::Format_RGB32);
     image = newImage;
     QWidget::resizeEvent(event);
     refreshScene();
 }
-
-int PlaneDisplay::numPoints() {
-    return n*n;
-}
-
-

@@ -26,7 +26,8 @@ SOURCES += matchingutils.cpp \
     siteheap.cpp \
     bigreedymatcher.cpp \
     diskgrower.cpp \
-    dpoint.cpp
+    dpoint.cpp \
+    npoint.cpp
 
 HEADERS  += mainwindow.h \
     planedisplay.h \
@@ -41,4 +42,5 @@ HEADERS  += mainwindow.h \
     siteheap.h \
     bigreedymatcher.h \
     diskgrower.h \
-    dpoint.h
+    dpoint.h \
+    npoint.h

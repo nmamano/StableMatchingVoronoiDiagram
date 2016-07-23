@@ -103,7 +103,8 @@ void Benchmarker::run() {
         for (int n : ns) {
             DiskGrower matcher(n, metric);
             for (int k : ks) {
-                vector<Point> centers = randomCenters(n, k);
+                vector<Point> centers = intPoints(randomCenters(n, k, false));
+
                 cout<<"===== metric: "<<metric<<"\tn: "<<n<<"\tk: "<<k<<" ====="<<endl;
                 for (double cutoff : cutoffs) {
                     cout<<"*** cutoff: "<<cutoff<<"\n";
