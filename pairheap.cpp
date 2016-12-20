@@ -29,28 +29,48 @@ void PairHeap::solveReal(const vector<DPoint> &centers, Matching& M) {
 void PairHeap::solve(Matching& M) const {
     DelSet remCIds(M.remainingCIds());
     if (remCIds.size() == 0) return;
-    DelSet remSIds;
-    int numSites = M.numRemSites();
-    if (!lazy) remSIds = DelSet(numSites);
-
     vector<SiteStruct> sites = initSites(remCIds.elems, M);
     min_heap<IdRealDist> Q = initHeap(sites);
+
+    if (lazy) {
+        solveLazy(M, remCIds, sites, Q);
+    } else {
+        solveEager(M, remCIds, sites, Q);
+    }
+}
+
+void PairHeap::solveLazy(Matching& M, DelSet& remCIds, vector<SiteStruct>& sites, min_heap<IdRealDist>& Q) const {
+
     while (!Q.empty()) {
         int sId = Q.top().id;
         Q.pop();
         int cId = sites[sId].neighbor;
         if (M.quotas[cId] == 0) {
             remCIds.erase(cId);
-            if (lazy) {
-                reinsertPair(sId, Q, sites, M.quotas, remCIds.elems);
-            } else {
-                Q = rebuildHeap(sites, M.quotas, remSIds.elems, remCIds.elems);
-            }
+            reinsertPair(sId, Q, sites, M.quotas, remCIds.elems);
         } else {
             Point site = sites[sId].site;
             M.plane[site.i][site.j] = cId;
             M.quotas[cId]--;
-            if (!lazy) remSIds.erase(sId);
+        }
+    }
+}
+
+void PairHeap::solveEager(Matching& M, DelSet& remCIds, vector<SiteStruct>& sites, min_heap<IdRealDist>& Q) const {
+    DelSet remSIds(M.numRemSites());
+
+    while (!Q.empty()) {
+        int sId = Q.top().id;
+        Q.pop();
+        int cId = sites[sId].neighbor;
+        if (M.quotas[cId] == 0) {
+            remCIds.erase(cId);
+            Q = rebuildHeap(sites, M.quotas, remSIds.elems, remCIds.elems);
+        } else {
+            Point site = sites[sId].site;
+            M.plane[site.i][site.j] = cId;
+            M.quotas[cId]--;
+            remSIds.erase(sId);
         }
     }
 }

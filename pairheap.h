@@ -43,6 +43,8 @@ private:
     vector<SiteStruct> initSites(const vector<int> &cIds, const Matching &M) const;
     double realDist(const Point &site, int cId) const;
     int intDist(const Point &site, int cId) const;
+    void solveLazy(Matching &M, DelSet &remCIds, vector<SiteStruct> &sites, min_heap<IdRealDist> &Q) const;
+    void solveEager(Matching &M, DelSet &remCIds, vector<SiteStruct> &sites, min_heap<IdRealDist> &Q) const;
 };
 
 #endif // PAIRHEAP_H
