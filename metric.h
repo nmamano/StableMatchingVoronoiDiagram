@@ -17,7 +17,6 @@ public:
     int iSortValue(const Point& p, const Point& q) const;
     double dSortValue(const Point& p, const Point& q) const;
     double dSortValue(const DPoint &p, const DPoint &q) const;
-
     bool operator==(const Metric &rhs) const {
         return val == rhs.val;
     }

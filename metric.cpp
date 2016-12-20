@@ -43,6 +43,8 @@ double Metric::dSortValue(const DPoint &p, const DPoint &q) const {
     return dSortValueGen(p, q);
 }
 
+
+
 double Metric::dSortValueGen(const Point &p, const Point& q) const {
     double i = pow(abs(p.i-q.i), val);
     double j = pow(abs(p.j-q.j), val);

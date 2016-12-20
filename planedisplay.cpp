@@ -21,26 +21,28 @@ PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
 
     initRegionColors();
 
-    realCenters = false;
-    centers = randomCenters(n, k, realCenters);
+    real = false;
+    centers = randomCenters(n, k, real);
     updateRegions();
+    planeHashHistory.push_back(planeHash(plane));
+    firstCenters = centers;
 
     shouldPrintCentroids = true;
     shouldPrintStatistics = true;
     shouldPrintIdealPerimeter = false;
+    enableGraphColoring = false;
 
     selectedCId = -1;
 
     constrIter = -1;
-    numCentroidMoves = 0;
 }
 
 void PlaneDisplay::updateRegions() {
-    if (realCenters) {
+    if (real) {
         vector<DPoint>dcenters = doublePoints(centers);
-        plane = matcher.realCentersQuery(dcenters);
+        plane = matcher.combinedApproachReal(dcenters);
     } else {
-        plane = matcher.intCentersQuery(intPoints(centers));
+        plane = matcher.combinedApproachInt(intPoints(centers));
     }
 }
 
@@ -49,7 +51,7 @@ void PlaneDisplay::initRegionColors() {
     regionColors.push_back(QColor(qRgb(0,117,220)));
     regionColors.push_back(QColor(qRgb(153,63,0)));
     regionColors.push_back(QColor(qRgb(76,0,92)));
-    regionColors.push_back(QColor(qRgb(25,25,25)));
+    //regionColors.push_back(QColor(qRgb(25,25,25))); //too dark
     regionColors.push_back(QColor(qRgb(0,92,49)));
     regionColors.push_back(QColor(qRgb(43,206,72)));
     regionColors.push_back(QColor(qRgb(255,204,153)));
@@ -73,6 +75,15 @@ void PlaneDisplay::initRegionColors() {
     regionColors.push_back(QColor(qRgb(255,80,5)));
 }
 
+int PlaneDisplay::numColors() const {
+    return regionColors.size();
+}
+
+void PlaneDisplay::resetPlaneHistory() {
+    planeHashHistory = vector<unsigned int> (0);
+    firstCenters = centers;
+}
+
 void PlaneDisplay::setGridSize(int newN)
 {
     if (newN == n) return;
@@ -86,21 +97,21 @@ void PlaneDisplay::setGridSize(int newN)
     }
     if (newCenters.empty()) {
         //at least one center
-        newCenters = randomCenters(n, 1, realCenters);
+        newCenters = randomCenters(n, 1, real);
     }
     centers = newCenters;
-    numCentroidMoves = 0;
+    resetPlaneHistory();
     printScene();
 }
 
 void PlaneDisplay::setRealCenters(bool useRealCenters)
 {
-    if (useRealCenters == realCenters) return;
-    realCenters = useRealCenters;
-    if (!realCenters) {
+    if (useRealCenters == real) return;
+    real = useRealCenters;
+    if (!real) {
         moveCentersToNearestLatticePoint();
     }
-    numCentroidMoves = 0;
+    resetPlaneHistory();
     printScene();
 }
 
@@ -116,20 +127,25 @@ void PlaneDisplay::moveCentersToNearestLatticePoint() {
     centers = newCenters;
 }
 
+int PlaneDisplay::numCentroidMoves() const
+{
+    return planeHashHistory.size();
+}
+
 void PlaneDisplay::setMetric(Metric metric)
 {
     if (matcher.getMetric() == metric) return;
     matcher.setMetric(metric);
-    numCentroidMoves = 0;
+    resetPlaneHistory();
     printScene();
 }
 
 void PlaneDisplay::showConstrStep()
 {
-    if (realCenters) return;
+    if (real) return;
 
     if (constrIter == -1 or
-            numAssignedPoints(constrPlane) == n*n) {
+            Matching::numAssignedPoints(constrPlane) == n*n) {
         constrPlane = vector<vector<int>> (n, vector<int> (n, -1));
         constrIter = 0;
     }
@@ -139,16 +155,16 @@ void PlaneDisplay::showConstrStep()
 }
 
 void PlaneDisplay::setRandomCenters(int newNumCenters) {
-    centers = randomCenters(n, newNumCenters, realCenters);
-    numCentroidMoves = 0;
+    centers = randomCenters(n, newNumCenters, real);
+    resetPlaneHistory();
     printScene();
 }
 
 void PlaneDisplay::addCenter(const NPoint &newCenter)
 {
-    if (!realCenters && contains(centers, newCenter)) return;
+    if (!real && contains(centers, newCenter)) return;
     centers.push_back(newCenter);
-    numCentroidMoves = 0;
+    resetPlaneHistory();
     printScene();
 }
 
@@ -157,7 +173,7 @@ void PlaneDisplay::removeCenter(int cId)
     if (centers.size() == 1) return;
     centers[cId] = centers[numCenters()-1];
     centers.pop_back();
-    numCentroidMoves = 0;
+    resetPlaneHistory();
     printScene();
 }
 
@@ -169,25 +185,57 @@ NPoint PlaneDisplay::randomAdjacentPoint(const NPoint& p) {
     return NPoint(p.di(), p.dj()+offset);
 }
 
-void PlaneDisplay::moveCentersToCentroids()
-{
-    vector<NPoint> ctroids = weightedCentroids(plane, centers, matcher.getMetric(), centroidWeight, realCenters);
-    if (areEqual(centers, ctroids)) {
-        QMessageBox::information(
-            this,
-            tr("Stable grid matching"),
-            tr("The centers have converged."));
-        return;
-    }
+void PlaneDisplay::moveCentersToCentroids() {
+    vector<NPoint> ctroids = weightedCentroids(plane, centers, matcher.getMetric(), centroidWeight, real);
 
     centers = vector<NPoint> (0);
     for (NPoint p : ctroids) {
-        while (!realCenters && contains(centers, p)) {
+        while (!real && contains(centers, p)) {
             p = randomAdjacentPoint(p);
         }
         centers.push_back(p);
     }
-    numCentroidMoves++;
+
+    bool alreadyPrintedPopup = false;
+    for (int i = 0; i < numCentroidMoves(); i++) {
+        for (int j = i+1; j < numCentroidMoves(); j++) {
+            if (planeHashHistory[i] == planeHashHistory[j]) {
+                alreadyPrintedPopup = true;
+            }
+        }
+    }
+
+    constrIter = -1;
+    updateRegions();
+    unsigned int newHash = planeHash(plane);
+
+    if (!alreadyPrintedPopup) {
+        for (int i = numCentroidMoves()-1; i >= 0; i--) {
+            if (newHash == planeHashHistory[i]) {
+                int loopSize = numCentroidMoves()-i;
+                if (loopSize == 1) {
+                    QMessageBox::information(
+                        this,
+                        tr("Stable grid matching"),
+                        tr("The centers have converged."));
+                } else {
+                    string s("The centers seem to be stuck in a loop of size "+to_string(loopSize)+".");
+                    QMessageBox::information(
+                        this,
+                        tr("Stable grid matching"),
+                        tr(s.c_str()));
+                }
+                break;
+            }
+        }
+    }
+    planeHashHistory.push_back(planeHash(plane));
+    refreshSceneAndColors();
+}
+
+void PlaneDisplay::undoMoves() {
+    centers = firstCenters;
+    resetPlaneHistory();
     printScene();
 }
 
@@ -204,7 +252,7 @@ int PlaneDisplay::selectedCenter(QPoint qp) {
 void PlaneDisplay::toggleCenter(QPoint qp) {
     int cId = selectedCenter(qp);
     if (cId == -1) {
-        NPoint p = qpointToNPoint(qp, realCenters);
+        NPoint p = qpointToNPoint(qp, real);
         if (p.di() < 0 or p.di() > n-1 or p.dj() < 0 or p.dj() > n-1)
             return;
         addCenter(p);
@@ -214,10 +262,10 @@ void PlaneDisplay::toggleCenter(QPoint qp) {
 }
 
 void PlaneDisplay::moveCenter(int cId, NPoint p) {
-    if (!realCenters && contains(centers, p)) return;
+    if (!real && contains(centers, p)) return;
     if (p.di() < 0 or p.di() > n-1 or p.dj() < 0 or p.dj() > n-1) return;
     centers[cId] = p;
-    numCentroidMoves = 0;
+    resetPlaneHistory();
     printScene();
 }
 
@@ -235,7 +283,7 @@ void PlaneDisplay::setShowCentroids(bool show) {
 void PlaneDisplay::setCentroidWeight(Num weight) {
     if (centroidWeight == weight) return;
     centroidWeight = weight;
-    numCentroidMoves = 0;
+    resetPlaneHistory();
     refreshScene();
 }
 
@@ -251,10 +299,18 @@ void PlaneDisplay::setShowIdealPerimeter(bool show) {
     refreshScene();
 }
 
+void PlaneDisplay::setGraphColoring(bool show)
+{
+    if (enableGraphColoring == show) return;
+    enableGraphColoring = show;
+    refreshSceneAndColors();
+}
+
 void PlaneDisplay::printScene() {
     constrIter = -1;
     updateRegions();
-    refreshScene();
+    planeHashHistory.push_back(planeHash(plane));
+    refreshSceneAndColors();
 }
 
 void PlaneDisplay::printConstrScene() {
@@ -265,7 +321,15 @@ void PlaneDisplay::printConstrScene() {
     update();
 }
 
+void PlaneDisplay::refreshSceneAndColors() {
+    if (enableGraphColoring) {
+        graphColoringColors = graphColoring();
+    }
+    refreshScene();
+}
+
 void PlaneDisplay::refreshScene() {
+
     image.fill(qRgb(255, 255, 240));
     printRegions(plane);
     printBoundaries();
@@ -311,6 +375,7 @@ double PlaneDisplay::dcellPixSize() const {
 }
 
 QColor PlaneDisplay::centerColor(int centerId) const {
+    if (enableGraphColoring) return regionColors[graphColoringColors[centerId]];
     return regionColors[centerId%regionColors.size()];
 }
 
@@ -362,12 +427,12 @@ void PlaneDisplay::printStatistics() {
     ss << setprecision(3) << fixed;
     ss <<"Metric: L_"<<matcher.getMetric()<<endl;
     ss <<"Grid size: "<<n<<endl;
-    ss <<"Num ("<<(realCenters?"real":"integer")<<") centers: "<<centers.size()<<endl;
+    ss <<"Num ("<<(real?"real":"integer")<<") centers: "<<centers.size()<<endl;
     Metric metric = matcher.getMetric();
     double d1 = avgDistPointCenter(plane, centers, metric);
-    ss <<"Iteration: "<<numCentroidMoves<<endl;
+    ss <<"k-means iteration: "<<numCentroidMoves()-1<<endl;
     ss <<"Point-center dist: "<<d1<<endl;
-    double d2 = avgDistCenterCentroid(plane, centers, metric, centroidWeight, realCenters);
+    double d2 = avgDistCenterCentroid(plane, centers, metric, centroidWeight, real);
     ss <<"Center-centroid dist: "<<d2<<endl;
     ss <<"Centroid weight (p): "<<centroidWeight.asStr()<<endl;
 
@@ -400,7 +465,7 @@ void PlaneDisplay::printCenters() {
 void PlaneDisplay::printCentroids() {
     QPainter painter(&image);
     int k = numCenters();
-    vector<NPoint> ctrdois = weightedCentroids(plane, centers, matcher.getMetric(), centroidWeight, realCenters);
+    vector<NPoint> ctrdois = weightedCentroids(plane, centers, matcher.getMetric(), centroidWeight, real);
     for (int i = 0; i < k; i++) {
         QPoint qp = npoint2QPoint(ctrdois[i]);
         painter.setPen(Qt::white);
@@ -422,7 +487,7 @@ double PlaneDisplay::areaToSquareDiag(double area) {
 void PlaneDisplay::printIdealPerimeters() {
     QPainter painter(&image);
     int k = numCenters();
-    vector<int> quotas = centerQuotas(n, k);
+    vector<int> quotas = Matching::centerQuotas(n, k);
     for (int cId = 0; cId < k; cId++) {
         NPoint c = centers[cId];
         QPoint qc = npoint2QPoint(c);
@@ -494,19 +559,14 @@ void PlaneDisplay::printBoundaries() {
     painter.setBrush(BOUNDARY_COLOR);
     double r = dcellPixSize();
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n-1; j++) {
+        for (int j = 0; j < n; j++) {
             QPointF qp = npoint2QPointf(NPoint(i, j));
-            if (plane[i][j] != plane[i][j+1]) {
+            if (j < n-1 && plane[i][j] != plane[i][j+1]) {
                 QPointF left(qp.x()-r/2, qp.y()+r/2);
                 QPointF right(qp.x()+r/2, qp.y()+r/2);
                 painter.drawLine(left, right);
             }
-        }
-    }
-    for (int i = 0; i < n-1; i++) {
-        for (int j = 0; j < n; j++) {
-            QPointF qp = npoint2QPointf(NPoint(i, j));
-            if (plane[i][j] != plane[i+1][j]) {
+            if (i < n-1 && plane[i][j] != plane[i+1][j]) {
                 QPointF top(qp.x()+r/2, qp.y()-r/2);
                 QPointF bottom(qp.x()+r/2, qp.y()+r/2);
                 painter.drawLine(top, bottom);
@@ -527,7 +587,7 @@ void PlaneDisplay::mousePressEvent(QMouseEvent *event) {
 void PlaneDisplay::mouseMoveEvent(QMouseEvent *event) {
     if ((event->buttons() & Qt::LeftButton) && mouseMoving) {
         if (selectedCId != -1) {
-            moveCenter(selectedCId, qpointToNPoint(event->pos(), realCenters));
+            moveCenter(selectedCId, qpointToNPoint(event->pos(), real));
             mouseMoved = true;
         }
     }
@@ -558,3 +618,82 @@ void PlaneDisplay::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
     refreshScene();
 }
+
+
+
+////////////////// GRAPH COLORING ////////////////////
+
+int PlaneDisplay::leastUsedColor(const vector<int>& usages, const vector<bool>& allowedColors) {
+    int res = -1;
+    for (int i = 0; i < (int)usages.size(); i++) {
+        if (allowedColors[i] && (res == -1 || usages[i] < usages[res])) {
+            res = i;
+        }
+    }
+    return res;
+}
+
+vector<unordered_set<int>> PlaneDisplay::findNeighborRegions() const {
+    int n = plane.size();
+    int k = centers.size();
+    vector<unordered_set<int>> res(k);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (j < n-1 && plane[i][j] != plane[i][j+1]) {
+                res[plane[i][j]].insert(plane[i][j+1]);
+                res[plane[i][j+1]].insert(plane[i][j]);
+            }
+            if (i < n-1 && plane[i][j] != plane[i+1][j]) {
+                res[plane[i][j]].insert(plane[i+1][j]);
+                res[plane[i+1][j]].insert(plane[i][j]);
+            }
+        }
+    }
+    return res;
+}
+
+vector<int> PlaneDisplay::graphColoring() const {
+    int k = numCenters();
+    vector<int> colors(k, -1); //color assigned to each center
+    vector<int> usages(numColors(), 0); //times each color is used
+    vector<unordered_set<int>> neighbors = findNeighborRegions(); //adj lists
+    for (int cId = 0; cId < k; cId++) {
+        vector<bool> allowedColors(numColors(), true);
+        for (int neighbor : neighbors[cId]) {
+            if (colors[neighbor] != -1) {
+                allowedColors[colors[neighbor]] = false;
+            }
+        }
+        colors[cId] = leastUsedColor(usages, allowedColors);
+//        cout<<"assign color "<<colors[cId]<<" to center "<<cId<<endl;
+//        cout<<"his neighbors have colors ";
+//        for(int n:neighbors[cId])cout<<colors[n]<<" ";cout<<endl;
+        if (colors[cId] == -1) { //all colors taken by neighbors
+            allowedColors = vector<bool> (numColors(), true);
+            //just pick the least used color, no big deal....
+            colors[cId] = leastUsedColor(usages, allowedColors);
+            cout<<"reassign color "<<colors[cId]<<" to center "<<cId<<endl;
+        }
+        usages[colors[cId]]++;
+    }
+    return colors;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

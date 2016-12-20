@@ -5,14 +5,11 @@
 
 int main(int argc, char *argv[])
 {
-//    Benchmarker benchmarker;
-//    benchmarker.run();
-//    return 0;
+//    Benchmarker::runExperiments();
 
     QApplication a(argc, argv);
     MainWindow w;
     w.show();
-
     return a.exec();
 }
 
@@ -21,14 +18,9 @@ int main(int argc, char *argv[])
  * Bicolor annuli region drawing
  * comment code
  * document
- * disable colors for colorblind people ?
+ * disable specific colors for colorblind people ?
  *
- * factorize point to qpoint conversion (now width and height is always the same)
- *
- *
- * print boundaries
  *
  * use unsigned short for grid indices and center indices
  *
- * update readme
  */

@@ -25,9 +25,12 @@ private slots:
     void changeMetric();
 
     void moveCentersToCentroids();
+    void undoMoves();
+
     void showCentroids(bool show);
     void showStatistics(bool show);
     void showIdealPerimeter(bool show);
+    void enableGraphColoring(bool show);
 
     void setLInftyMetric();
     void setL2Metric();
@@ -55,6 +58,7 @@ private:
     QAction *aboutAct;
 
     QAction *moveCentersToCentroidsAct;
+    QAction *undoMovesAct;
     QAction *gridSizeAct;
     QAction *centersAct;
     QAction *centroidWeightAct;
@@ -69,6 +73,7 @@ private:
     QAction *showCentroidsAct;
     QAction *showStatisticsAct;
     QAction *showIdealPerimeterAct;
+    QAction *graphColoringAct;
 
     QActionGroup *centerType;
     QAction *discreteCentersAct;

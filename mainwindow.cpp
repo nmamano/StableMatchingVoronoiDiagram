@@ -5,6 +5,7 @@
 
 MainWindow::MainWindow()
 {
+
     QTime now = QTime::currentTime();
     qsrand(now.msec());
 //    qsrand(0);
@@ -108,6 +109,10 @@ void MainWindow::moveCentersToCentroids()
     planeDisplay->moveCentersToCentroids();
 }
 
+void MainWindow::undoMoves() {
+    planeDisplay->undoMoves();
+}
+
 void MainWindow::showCentroids(bool show)
 {
     planeDisplay->setShowCentroids(show);
@@ -128,6 +133,11 @@ void MainWindow::showIdealPerimeter(bool show)
 
     }
     planeDisplay->setShowIdealPerimeter(show);
+}
+
+void MainWindow::enableGraphColoring(bool show)
+{
+    planeDisplay->setGraphColoring(show);
 }
 
 void MainWindow::showConstrStep()
@@ -213,6 +223,10 @@ void MainWindow::createActions()
     connect(moveCentersToCentroidsAct, SIGNAL(triggered()), this, SLOT(moveCentersToCentroids()));
     moveCentersToCentroidsAct->setShortcut(Qt::Key_Right);
 
+    undoMovesAct = new QAction(tr("Undo all moves to centroids"), this);
+    connect(undoMovesAct, SIGNAL(triggered()), this, SLOT(undoMoves()));
+    undoMovesAct->setShortcut(Qt::Key_Left);
+
     centroidWeightAct = new QAction(tr("Centroid weight..."), this);
     connect(centroidWeightAct, SIGNAL(triggered()), this, SLOT(changeCentroidWeight()));
     centroidWeightAct->setShortcut(Qt::Key_P);
@@ -231,6 +245,12 @@ void MainWindow::createActions()
     showIdealPerimeterAct->setCheckable(true);
     showIdealPerimeterAct->setChecked(false);
     connect(showIdealPerimeterAct, SIGNAL(triggered(bool)), this, SLOT(showIdealPerimeter(bool)));
+
+    graphColoringAct = new QAction(tr("Enable graph coloring"), this);
+    graphColoringAct->setCheckable(true);
+    graphColoringAct->setChecked(false);
+    connect(graphColoringAct, SIGNAL(triggered(bool)), this, SLOT(enableGraphColoring(bool)));
+    graphColoringAct->setShortcut(Qt::Key_G);
 
     L1MetricAct = new QAction(tr("Manhattan distance"), this);
     L1MetricAct->setCheckable(true);
@@ -283,7 +303,9 @@ void MainWindow::createMenus()
     optionMenu = new QMenu(tr("Options"), this);
     optionMenu->addAction(gridSizeAct);
     optionMenu->addAction(centersAct);
+    optionMenu->addSeparator();
     optionMenu->addAction(moveCentersToCentroidsAct);
+    optionMenu->addAction(undoMovesAct);
     optionMenu->addAction(centroidWeightAct);
     optionMenu->addSeparator();
     optionMenu->addAction(L1MetricAct);
@@ -300,6 +322,7 @@ void MainWindow::createMenus()
     viewMenu->addAction(showCentroidsAct);
     viewMenu->addAction(showStatisticsAct);
     viewMenu->addAction(showIdealPerimeterAct);
+    viewMenu->addAction(graphColoringAct);
 
     helpMenu = new QMenu(tr("Help"), this);
     helpMenu->addAction(aboutAct);

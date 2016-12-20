@@ -4,10 +4,11 @@
 #include <QWidget>
 #include <vector>
 #include <iostream>
+#include <unordered_set>
 #include "num.h"
 #include "npoint.h"
 #include "matchingutils.h"
-#include "diskgrower.h"
+#include "circlegrower.h"
 
 using namespace std;
 
@@ -23,7 +24,7 @@ public:
     int numPoints() const { return n*n; }
 
     void setRealCenters(bool useRealCenters);
-    bool usingRealCenters() const { return realCenters; }
+    bool usingRealCenters() const { return real; }
     void setRandomCenters(int newNumCenters);
     void addCenter(const NPoint &newCenter);
     void removeCenter(int cId);
@@ -33,6 +34,7 @@ public:
     Num getCentroidWeight() const { return centroidWeight; }
 
     void moveCentersToCentroids();
+    void undoMoves();
 
     void setMetric(Metric metric);
     Metric getMetric() { return matcher.getMetric(); }
@@ -43,6 +45,7 @@ public:
     void setShowCentroids(bool show);
     void setShowStatistics(bool show);
     void setShowIdealPerimeter(bool show);
+    void setGraphColoring(bool show);
 
     void showConstrStep();
 
@@ -58,26 +61,39 @@ private:
     //logic
     int n;
     vector<vector<int>> plane;
-    DiskGrower matcher;
+    CircleGrower matcher;
     void updateRegions();
 
     vector<NPoint> centers;
-    bool realCenters;
+    bool real;
     void moveCentersToNearestLatticePoint();
 
     Num centroidWeight;
-    int numCentroidMoves;
+    int numCentroidMoves() const;
 
     void toggleCenter(QPoint qp);
     void moveCenter(int cId, NPoint p);
-    NPoint randomAdjacentPoint(const NPoint &p);
+    static NPoint randomAdjacentPoint(const NPoint &p);
+
+    vector<unsigned int> planeHashHistory;
+    void resetPlaneHistory();
+    vector<NPoint> firstCenters;
 
     //GUI
     QImage image;
 
     void initRegionColors();
     vector<QColor> regionColors;
+    int numColors() const;
+
     QColor centerColor(int centerId) const;
+    bool enableGraphColoring;
+    vector<int> graphColoringColors;
+
+    vector<int> graphColoring() const;
+    vector<unordered_set<int> > findNeighborRegions() const;
+    static int leastUsedColor(const vector<int> &usages, const vector<bool> &allowedColors);
+
 
     const int CENTER_RAD = 5;
     const int CENTROID_RAD = 3;
@@ -88,6 +104,7 @@ private:
 
     //printing
     void printScene();
+    void refreshSceneAndColors();
     void refreshScene();
 
     void printLatticePoints();
@@ -110,6 +127,7 @@ private:
     static double areaToRad(double area);
     static double areaToSquareDiag(double area);
 
+
     void printConstrScene();
     vector<vector<int>> constrPlane;
     int constrIter;
@@ -127,6 +145,7 @@ private:
 
     int selectedCenter(QPoint qp);
     int selectedCId;
+
 
 };
 

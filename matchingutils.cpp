@@ -1,4 +1,5 @@
 #include "matchingutils.h"
+#include "matching.h"
 #include <vector>
 #include <math.h>
 #include <algorithm>
@@ -8,77 +9,6 @@
 #include <math.h>
 
 using namespace std;
-
-bool is_stable(const vector<vector<int> > &plane,
-        const vector<Point> &centers, Metric metric, double PRES, bool stopEarly) {
-    bool res = true;
-    int n = plane.size();
-    int k = centers.size();
-    vector<double> farthest_dist(k, -1);
-    vector<int> num_points(k, 0);
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            int c_id = plane[i][j];
-            num_points[c_id]++;
-            Point c = centers[c_id];
-            double dis = metric.ddist(Point(i, j), c);
-            if (dis > farthest_dist[c_id]) {
-                farthest_dist[c_id] = dis;
-            }
-        }
-    }
-    int quota = n*n/k;
-    for (int i = 0; i < k; i++) {
-        if (num_points[i] != quota and num_points[i] != quota+1) {
-            cout << "Error: center has " << num_points[i] << " sites but the quota is " << quota << endl;
-            if (stopEarly) return false;
-            res = false;
-        }
-    }
-    int inc = 1;
-    if (n*n*k >= 1000*1000*1000) inc = 50;
-    else if (n*n*k >= 10*1000*1000) inc = 10;
-
-    for (int i = 0; i < n; i+= inc) { //sampling..
-        for (int j = 0; j < n; j+= inc) {
-            int c_id = plane[i][j];
-            Point p(i, j);
-            double dis = metric.ddist(p, centers[c_id]);
-            for (int r = 0; r < k; r++) {
-                if (r != c_id) {
-                    double dis2 = metric.ddist(p, centers[r]);
-                    if (dis2 < dis-PRES and dis2 < farthest_dist[r]-PRES) {
-                        cout << "Error: matching not stable" << endl << p << " prefers center " << r << " " << centers[r] <<
-                                " at distance " << dis2 << " than center " << c_id << " " << centers[c_id] << " at " <<
-                                "distance " << dis << endl << "center " << r << " " << centers[r] << " prefers " << p << " to " <<
-                                "its farthest point which is at distance " << farthest_dist[r] << endl;
-                        if (stopEarly) return false;
-                        res = false;
-                    }
-                }
-            }
-        }
-    }
-    return res;
-}
-
-/** Returns the number of sites that correspond to each center. If the quotas
-are not a whole number, some centers are allowed an extra site */
-vector<int> centerQuotas(int n, int k) {
-    int quota = (n*n)/k;
-    vector<int> quotas(k, quota);
-
-    //distribute the remaining sites among the first centers
-    int remPoints = n*n - quota*k;
-    int i = 0;
-    while (remPoints > 0) {
-        quotas[i]++;
-        remPoints--;
-        i++;
-    }
-    return quotas;
-}
-
 
 vector<NPoint> randomCenters(int n, int k, bool realCoords)
 {
@@ -94,26 +24,6 @@ vector<NPoint> randomCenters(int n, int k, bool realCoords)
         centers.push_back(p);
     }
     return centers;
-}
-
-vector<Point> intPoints(const vector<NPoint>& points) {
-    int n = points.size();
-    vector<Point> res(n);
-    for (int i = 0; i < n; i++) {
-        NPoint p = points[i];
-        res[i] = Point(p.i.asInt(), p.j.asInt());
-    }
-    return res;
-}
-
-vector<DPoint> doublePoints(const vector<NPoint>& points) {
-    int n = points.size();
-    vector<DPoint> res(n);
-    for (int i = 0; i < n; i++) {
-        NPoint p = points[i];
-        res[i] = DPoint(p.i.asDouble(), p.j.asDouble());
-    }
-    return res;
 }
 
 bool contains(const vector<NPoint>& ps, const NPoint& q)
@@ -136,22 +46,6 @@ NPoint randomPoint(int n, bool realCoords)
     return NPoint(qrand()/qrandMax*(n-1), qrand()/qrandMax*(n-1));
 }
 
-/** Returns the list of points assigned to each center */
-vector<vector<Point>> pointsByCenter(const vector<vector<int>>& plane,
-        int k) {
-    int n = plane.size();
-    vector<vector<Point>> res(k);
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            int c_id = plane[i][j];
-            if (c_id == -1)
-                cout << " Error: unassigned point" << endl;
-            res[c_id].push_back(Point(i, j));
-        }
-    }
-    return res;
-}
-
 vector<NPoint> weightedCentroids(
         const vector<vector<int>>& plane,
         const vector<NPoint>& centers,
@@ -159,7 +53,7 @@ vector<NPoint> weightedCentroids(
 
     int k = centers.size();
     vector<NPoint> centroids(k);
-    vector<vector<Point>> points = pointsByCenter(plane, k);
+    vector<vector<Point>> points = Matching::pointsByCenter(plane, k);
     for (int i = 0; i < k; i++) {
         centroids[i] = weightedCentroid(points[i], centers[i], metric, weightExp, realCentroids);
     }
@@ -215,12 +109,83 @@ double avgDistCenterCentroid(const vector<vector<int> > &plane,
     return disSum/k;
 }
 
-int numAssignedPoints(const vector<vector<int> > &plane)
-{
+vector<NPoint> numPoints(const vector<Point> &points) {
+    vector<NPoint> res;
+    for (const Point& p : points) res.push_back(p);
+    return res;
+}
+
+vector<NPoint> numPoints(const vector<DPoint> &points) {
+    vector<NPoint> res;
+    for (const DPoint& p : points) res.push_back(p);
+    return res;
+}
+
+vector<DPoint> doublePoints(const vector<Point>& points) {
+    vector<DPoint> res;
+    for (const Point& p : points) res.push_back(p);
+    return res;
+}
+
+vector<Point> intPoints(const vector<NPoint>& points) {
+    int n = points.size();
+    vector<Point> res(n);
+    for (int i = 0; i < n; i++) {
+        NPoint p = points[i];
+        res[i] = Point(p.i.asInt(), p.j.asInt());
+    }
+    return res;
+}
+
+vector<DPoint> doublePoints(const vector<NPoint>& points) {
+    int n = points.size();
+    vector<DPoint> res(n);
+    for (int i = 0; i < n; i++) {
+        NPoint p = points[i];
+        res[i] = DPoint(p.i.asDouble(), p.j.asDouble());
+    }
+    return res;
+}
+
+unsigned int planeHash(const vector<vector<int>> &plane) {
+    const int BIG_PRIME = 10000019;
     int n = plane.size();
-    int count = 0;
-    for (int i = 0; i < n; i++)
-        for (int j = 0; j < n; j++)
-            if (plane[i][j] != -1) count++;
-    return count;
+    unsigned int hash = 5381;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            hash = (hash*65599 + plane[i][j]) % BIG_PRIME;
+        }
+    }
+    return hash;
+}
+
+DelSet::DelSet(const vector<int> &v): elems(v) {
+    if (elems.size() == 0) return;
+    int maxElem = elems[0];
+    for (int elem : elems) {
+        maxElem = max(maxElem, elem);
+    }
+    positions = vector<int>(maxElem+1, -1);
+    for (int i = 0; i < (int)elems.size(); i++) {
+        positions[elems[i]] = i;
+    }
+}
+
+DelSet::DelSet(int maxElem) {
+    elems = vector<int> (maxElem);
+    positions = vector<int> (maxElem);
+    for (int i = 0; i < maxElem; i++) {
+        elems[i] = positions[i] = i;
+    }
+}
+
+void DelSet::erase(int elem) {
+    int pos = positions[elem];
+    if (pos == -1) return;
+    positions[elem] = -1;
+    if (pos != (int)elems.size()-1) {
+        elems[pos] = elems[elems.size()-1];
+        positions[elems[pos]] = pos;
+    }
+    elems.pop_back();
 }

@@ -20,14 +20,14 @@ SOURCES += matchingutils.cpp \
     metric.cpp \
     point.cpp \
     num.cpp \
-    allpairsorting.cpp \
     radixsort.cpp \
-    neighborheuristic.cpp \
-    siteheap.cpp \
     bigreedymatcher.cpp \
-    diskgrower.cpp \
     dpoint.cpp \
-    npoint.cpp
+    npoint.cpp \
+    pairheap.cpp \
+    circlegrower.cpp \
+    pairsort.cpp \
+    matching.cpp
 
 HEADERS  += mainwindow.h \
     planedisplay.h \
@@ -36,11 +36,11 @@ HEADERS  += mainwindow.h \
     metric.h \
     point.h \
     num.h \
-    allpairsorting.h \
     radixsort.h \
-    neighborheuristic.h \
-    siteheap.h \
     bigreedymatcher.h \
-    diskgrower.h \
     dpoint.h \
-    npoint.h
+    npoint.h \
+    pairheap.h \
+    circlegrower.h \
+    pairsort.h \
+    matching.h
