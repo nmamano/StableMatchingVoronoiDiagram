@@ -1,9 +1,13 @@
 #include "matching.h"
 #include <iostream>
 
-Matching::Matching(int n, int k) {
+Matching::Matching(const vector<vector<int> > &plane,
+        const vector<int> &quotas):
+    plane(plane), quotas(quotas) {}
+
+Matching::Matching(int n, int k, int appetite) {
     plane = vector<vector<int>> (n, vector<int> (n, -1));
-    quotas = centerQuotas(n, k);
+    quotas = centerQuotas(n, k, appetite);
 }
 
 Matching::Matching(const Matching &M) {
@@ -11,7 +15,10 @@ Matching::Matching(const Matching &M) {
     quotas = M.quotas;
 }
 
-vector<int> Matching::centerQuotas(int n, int k) {
+vector<int> Matching::centerQuotas(int n, int k, int appetite) {
+    if (appetite != 0) {
+        return vector<int> (k, appetite);
+    }
     int quota = (n*n)/k;
     vector<int> quotas(k, quota);
     //distribute the remaining sites among the first centers
@@ -41,14 +48,25 @@ int Matching::numRemSites() const {
     return res;
 }
 
-vector<Point> Matching::remainingSites() const {
-    vector<Point> res(numRemSites());
-    int index = 0;
+int Matching::numUmatchedSites() const {
+    int count = 0;
     for (int i = 0; i < n(); i++) {
         for (int j = 0; j < n(); j++) {
             if (plane[i][j] == -1) {
-                res[index] = Point(i,j);
-                index++;
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+vector<Point> Matching::remainingSites() const {
+    vector<Point> res(0);
+    res.reserve(numRemSites());
+    for (int i = 0; i < n(); i++) {
+        for (int j = 0; j < n(); j++) {
+            if (plane[i][j] == -1) {
+                res.push_back(Point(i,j));
             }
         }
     }

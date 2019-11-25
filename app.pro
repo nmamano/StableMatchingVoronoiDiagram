@@ -27,7 +27,14 @@ SOURCES += matchingutils.cpp \
     pairheap.cpp \
     circlegrower.cpp \
     pairsort.cpp \
-    matching.cpp
+    matching.cpp \
+    voronoidiagram.cpp \
+    triangle.cpp \
+    circle.cpp \
+    polygon.cpp \
+    edge.cpp \
+    voronoitree.cpp \
+    galeshapley.cpp
 
 HEADERS  += mainwindow.h \
     planedisplay.h \
@@ -43,4 +50,11 @@ HEADERS  += mainwindow.h \
     pairheap.h \
     circlegrower.h \
     pairsort.h \
-    matching.h
+    matching.h \
+    voronoidiagram.h \
+    triangle.h \
+    circle.h \
+    polygon.h \
+    edge.h \
+    voronoitree.h \
+    galeshapley.h

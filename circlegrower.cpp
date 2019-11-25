@@ -106,9 +106,10 @@ vector<Point> CircleGrower::pointsSortedByRealNorm(int n, const Metric& metric) 
     return res;
 }
 
-vector<vector<int>> CircleGrower::combinedApproachInt(const vector<Point> &centers) const {
+vector<vector<int>> CircleGrower::combinedApproachInt(
+        const vector<Point> &centers, int appetite) const {
     int k = centers.size();
-    Matching M(n, k);
+    Matching M(n, k, appetite);
     int PIndex = 0;
     double cutoff = 0.1;
     solveInt(centers, M, cutoff, PIndex);
@@ -117,14 +118,20 @@ vector<vector<int>> CircleGrower::combinedApproachInt(const vector<Point> &cente
     return M.plane;
 }
 
-vector<vector<int>> CircleGrower::combinedApproachReal(const vector<DPoint>& centers) const {
+vector<vector<int>> CircleGrower::combinedApproachReal(
+        const vector<DPoint>& centers, int appetite) const {
     int k = centers.size();
-    Matching M(n, k);
+    Matching M(n, k, appetite);
     int PIndex = 0;
-    double cutoff = 0.1;
+    double cutoff = 0.05;
+//    cerr<<"solve1"<<endl;
     solveReal(centers, M, cutoff, PIndex);
-    PairHeap pairHeap(metric, true, false);
-    pairHeap.solveReal(centers, M);
+//    PairHeap pairHeap(metric, true, false);
+    PairSort pairSort(metric);
+//    cerr<<"solve2"<<endl;
+//    pairHeap.solveReal(centers, M);
+    pairSort.solveReal(centers, M);
+//    cerr<<"solved"<<endl;
     return M.plane;
 }
 
@@ -323,7 +330,7 @@ void CircleGrower::sortLinks(vector<Link>& links, const vector<DPoint>& centers)
 
 void CircleGrower::step(vector<vector<int>>& plane, const vector<Point> &centers, int iter) {
     int k = centers.size();
-    vector<int> quotas = Matching::centerQuotas(n, k);
+    vector<int> quotas = Matching::centerQuotas(n, k, 0);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             if (plane[i][j] != -1) {

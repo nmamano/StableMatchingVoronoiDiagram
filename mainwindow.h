@@ -23,6 +23,7 @@ private slots:
     void changeCenters();
     void changeCentroidWeight();
     void changeMetric();
+    void changeAppetite();
 
     void moveCentersToCentroids();
     void undoMoves();
@@ -30,7 +31,11 @@ private slots:
     void showCentroids(bool show);
     void showStatistics(bool show);
     void showIdealPerimeter(bool show);
+    void showVoronoi(bool show);
+    void showDelaunay(bool show);
     void enableGraphColoring(bool show);
+    void enableVoronoiOnly(bool show);
+    void enableVoronoiTree(bool show);
 
     void setLInftyMetric();
     void setL2Metric();
@@ -39,6 +44,9 @@ private slots:
     void setDiscreteCenters();
 
     void showConstrStep();
+    void showNextRegion();
+    void showNextCircle();
+    void showPrevCircle();
 
 private:
     void createActions();
@@ -61,6 +69,7 @@ private:
     QAction *undoMovesAct;
     QAction *gridSizeAct;
     QAction *centersAct;
+    QAction *appetiteAct;
     QAction *centroidWeightAct;
 
     QAction *L1MetricAct;
@@ -69,11 +78,19 @@ private:
     QAction *otherMetricAct;
 
     QAction *showConstrStepAct;
+    QAction *showNextRegionAct;
+    QAction *showNextCircleAct;
+    QAction *showPrevCircleAct;
 
     QAction *showCentroidsAct;
     QAction *showStatisticsAct;
     QAction *showIdealPerimeterAct;
     QAction *graphColoringAct;
+    QAction *voronoiOnlyAct;
+    QAction *voronoiTreeAct;
+
+    QAction *showVoronoiAct;
+    QAction *showDelaunayAct;
 
     QActionGroup *centerType;
     QAction *discreteCentersAct;

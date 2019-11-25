@@ -67,6 +67,16 @@ void MainWindow::changeCenters()
     if (ok) planeDisplay->setRandomCenters(newNum);
 }
 
+void MainWindow::changeAppetite()
+{
+    bool ok;
+    int newApt = QInputDialog::getInt(this, tr("Appetite"),
+        tr("Select a constant appetite (or 0 for n^2/k):"),
+        planeDisplay->getAppetite(),
+    0, planeDisplay->numPoints(), 1, &ok);
+
+    if (ok) planeDisplay->setAppetite(newApt);
+}
 
 void MainWindow::changeCentroidWeight()
 {
@@ -123,6 +133,16 @@ void MainWindow::showStatistics(bool show)
     planeDisplay->setShowStatistics(show);
 }
 
+void MainWindow::showVoronoi(bool show)
+{
+    planeDisplay->setShowVoronoi(show);
+}
+
+void MainWindow::showDelaunay(bool show)
+{
+    planeDisplay->setShowDelaunay(show);
+}
+
 void MainWindow::showIdealPerimeter(bool show)
 {
     if (show && otherMetricAct->isChecked()) {
@@ -140,6 +160,16 @@ void MainWindow::enableGraphColoring(bool show)
     planeDisplay->setGraphColoring(show);
 }
 
+void MainWindow::enableVoronoiOnly(bool show)
+{
+    planeDisplay->setVoronoiOnly(show);
+}
+
+void MainWindow::enableVoronoiTree(bool show)
+{
+    planeDisplay->setVoronoiTree(show);
+}
+
 void MainWindow::showConstrStep()
 {
     if (planeDisplay->usingRealCenters()) {
@@ -150,6 +180,21 @@ void MainWindow::showConstrStep()
         return;
     }
     planeDisplay->showConstrStep();
+}
+
+void MainWindow::showNextRegion()
+{
+    planeDisplay->showNextRegion();
+}
+
+void MainWindow::showNextCircle()
+{
+    planeDisplay->showNextCircle();
+}
+
+void MainWindow::showPrevCircle()
+{
+    planeDisplay->showPrevCircle();
 }
 
 void MainWindow::setMetricsUnchecked() {
@@ -219,6 +264,10 @@ void MainWindow::createActions()
     connect(centersAct, SIGNAL(triggered()), this, SLOT(changeCenters()));
     centersAct->setShortcut(Qt::Key_K);
 
+    appetiteAct = new QAction(tr("Appetite..."), this);
+    connect(appetiteAct, SIGNAL(triggered()), this, SLOT(changeAppetite()));
+    appetiteAct->setShortcut(Qt::Key_A);
+
     moveCentersToCentroidsAct = new QAction(tr("Move centers to centroids"), this);
     connect(moveCentersToCentroidsAct, SIGNAL(triggered()), this, SLOT(moveCentersToCentroids()));
     moveCentersToCentroidsAct->setShortcut(Qt::Key_Right);
@@ -233,18 +282,40 @@ void MainWindow::createActions()
 
     showCentroidsAct = new QAction(tr("Show centroids"), this);
     showCentroidsAct->setCheckable(true);
-    showCentroidsAct->setChecked(true);
+    showCentroidsAct->setChecked(false);
     connect(showCentroidsAct, SIGNAL(triggered(bool)), this, SLOT(showCentroids(bool)));
 
     showStatisticsAct = new QAction(tr("Show statistics"), this);
     showStatisticsAct->setCheckable(true);
-    showStatisticsAct->setChecked(true);
+    showStatisticsAct->setChecked(false);
     connect(showStatisticsAct, SIGNAL(triggered(bool)), this, SLOT(showStatistics(bool)));
 
     showIdealPerimeterAct = new QAction(tr("Show ideal perimeters"), this);
     showIdealPerimeterAct->setCheckable(true);
     showIdealPerimeterAct->setChecked(false);
     connect(showIdealPerimeterAct, SIGNAL(triggered(bool)), this, SLOT(showIdealPerimeter(bool)));
+
+    showVoronoiAct = new QAction(tr("Show Voronoi diagram"), this);
+    showVoronoiAct->setCheckable(true);
+    showVoronoiAct->setChecked(true);
+    connect(showVoronoiAct, SIGNAL(triggered(bool)), this, SLOT(showVoronoi(bool)));
+    showVoronoiAct->setShortcut(Qt::Key_V);
+
+    showDelaunayAct = new QAction(tr("Show Delaunay triangulation"), this);
+    showDelaunayAct->setCheckable(true);
+    showDelaunayAct->setChecked(false);
+    connect(showDelaunayAct, SIGNAL(triggered(bool)), this, SLOT(showDelaunay(bool)));
+
+    voronoiOnlyAct = new QAction(tr("Show Voronoi regions"), this);
+    voronoiOnlyAct->setCheckable(true);
+    voronoiOnlyAct->setChecked(false);
+    connect(voronoiOnlyAct, SIGNAL(triggered(bool)), this, SLOT(enableVoronoiOnly(bool)));
+
+    voronoiTreeAct = new QAction(tr("Show Voronoi Tree"), this);
+    voronoiTreeAct->setCheckable(true);
+    voronoiTreeAct->setChecked(false);
+    connect(voronoiTreeAct, SIGNAL(triggered(bool)), this, SLOT(enableVoronoiTree(bool)));
+    voronoiTreeAct->setShortcut(Qt::Key_T);
 
     graphColoringAct = new QAction(tr("Enable graph coloring"), this);
     graphColoringAct->setCheckable(true);
@@ -288,6 +359,20 @@ void MainWindow::createActions()
     showConstrStepAct = new QAction(tr("Show construction step"), this);
     connect(showConstrStepAct, SIGNAL(triggered()), this, SLOT(showConstrStep()));
     showConstrStepAct->setShortcut(Qt::Key_S);
+
+    showNextRegionAct = new QAction(tr("Show next matched region"), this);
+    connect(showNextRegionAct, SIGNAL(triggered()), this, SLOT(showNextRegion()));
+    showNextRegionAct->setShortcut(Qt::Key_W);
+
+    showNextCircleAct = new QAction(tr("Show one more matched circle"), this);
+    connect(showNextCircleAct, SIGNAL(triggered()), this, SLOT(showNextCircle()));
+    showNextCircleAct->setShortcut(Qt::Key_C);
+
+    showPrevCircleAct = new QAction(tr("Show one less matched circle"), this);
+    connect(showPrevCircleAct, SIGNAL(triggered()), this, SLOT(showPrevCircle()));
+    showPrevCircleAct->setShortcut(Qt::CTRL + Qt::Key_C);
+
+
 }
 
 void MainWindow::createMenus()
@@ -303,6 +388,7 @@ void MainWindow::createMenus()
     optionMenu = new QMenu(tr("Options"), this);
     optionMenu->addAction(gridSizeAct);
     optionMenu->addAction(centersAct);
+    optionMenu->addAction(appetiteAct);
     optionMenu->addSeparator();
     optionMenu->addAction(moveCentersToCentroidsAct);
     optionMenu->addAction(undoMovesAct);
@@ -317,11 +403,19 @@ void MainWindow::createMenus()
     optionMenu->addAction(realCentersAct);
     optionMenu->addSeparator();
     optionMenu->addAction(showConstrStepAct);
+    optionMenu->addAction(showNextRegionAct);
+    optionMenu->addAction(showNextCircleAct);
+    optionMenu->addAction(showPrevCircleAct);
+    optionMenu->addSeparator();
+    optionMenu->addAction(voronoiOnlyAct);
+    optionMenu->addAction(voronoiTreeAct);
 
     viewMenu = new QMenu(tr("View"), this);
     viewMenu->addAction(showCentroidsAct);
     viewMenu->addAction(showStatisticsAct);
     viewMenu->addAction(showIdealPerimeterAct);
+    viewMenu->addAction(showVoronoiAct);
+    viewMenu->addAction(showDelaunayAct);
     viewMenu->addAction(graphColoringAct);
 
     helpMenu = new QMenu(tr("Help"), this);

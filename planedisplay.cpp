@@ -7,11 +7,13 @@
 #include <utility>
 #include <iomanip>
 #include "metric.h"
+#include "voronoidiagram.h"
+#include "voronoitree.h"
 
 using namespace std;
 
-PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
-    n(n), matcher(n)
+PlaneDisplay::PlaneDisplay(int n, int k, int appetite, QWidget *parent) : QWidget(parent),
+    n(n), appetite(appetite), matcher(n)
 {
     setAttribute(Qt::WA_StaticContents);
     mouseMoving = false;
@@ -21,28 +23,76 @@ PlaneDisplay::PlaneDisplay(int n, int k, QWidget *parent) : QWidget(parent),
 
     initRegionColors();
 
-    real = false;
-    centers = randomCenters(n, k, real);
+    real = true;
+    setRandomCenters(k, false);
+
     updateRegions();
     planeHashHistory.push_back(planeHash(plane));
     firstCenters = centers;
 
-    shouldPrintCentroids = true;
-    shouldPrintStatistics = true;
+    shouldPrintCentroids = false;
+    shouldPrintStatistics = false;
     shouldPrintIdealPerimeter = false;
+    shouldPrintVoronoi = true;
+    shouldPrintDelaunay = false;
     enableGraphColoring = false;
 
     selectedCId = -1;
 
     constrIter = -1;
+
+    numCircles = 0;
+    numRegions = 0;
+}
+
+void PlaneDisplay::setRandomCenters(int k, bool update) {
+//    centers = randomCenters(n, k, real);
+    centers = randomCentersCentered(n, k, real);
+//    centers = lowerBoundCentersHalf(n,k);
+//    centers = centersInCircle(n,k);
+//    centers = packedCenters(n,k,1000);
+//    centers = randomCentersInCircle(n, k, real);
+//    centers = invadeAllCenters(n, k, real);
+    if (update) {
+        resetPlaneHistory();
+        printScene();
+    }
 }
 
 void PlaneDisplay::updateRegions() {
-    if (real) {
+    if (enableVoronoiTree) {
+        cerr<<1<<endl;
+        VoronoiTree VT;
+        plane = VT.solve(centers, n);
+        cerr<<2<<endl;
+    }
+    else if (enableVoronoiOnly) {
+        getVoronoiRegions();
+    }
+    else if (real) {
         vector<DPoint>dcenters = doublePoints(centers);
-        plane = matcher.combinedApproachReal(dcenters);
+        plane = matcher.combinedApproachReal(dcenters, appetite);
     } else {
-        plane = matcher.combinedApproachInt(intPoints(centers));
+        plane = matcher.combinedApproachInt(intPoints(centers), appetite);
+    }
+}
+
+void PlaneDisplay::getVoronoiRegions() {
+    Metric metric = getMetric();
+    plane = vector<vector<int>> (n, vector<int> (n));
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            NPoint p = NPoint(i, j);
+            plane[i][j] = 0;
+            double minDist = metric.ddist(p, centers[0]);
+            for (int k = 1; k < (int)centers.size(); k++) {
+                double dist = metric.ddist(p, centers[k]);
+                if (dist < minDist) {
+                    minDist = dist;
+                    plane[i][j] = k;
+                }
+            }
+        }
     }
 }
 
@@ -104,6 +154,12 @@ void PlaneDisplay::setGridSize(int newN)
     printScene();
 }
 
+void PlaneDisplay::setAppetite(int newApt) {
+    appetite = newApt;
+    resetPlaneHistory();
+    printScene();
+}
+
 void PlaneDisplay::setRealCenters(bool useRealCenters)
 {
     if (useRealCenters == real) return;
@@ -154,10 +210,25 @@ void PlaneDisplay::showConstrStep()
     printConstrScene();
 }
 
-void PlaneDisplay::setRandomCenters(int newNumCenters) {
-    centers = randomCenters(n, newNumCenters, real);
-    resetPlaneHistory();
-    printScene();
+void PlaneDisplay::showNextRegion()
+{
+    numCircles = 0;
+    numRegions++;
+    refreshScene();
+}
+
+void PlaneDisplay::showNextCircle()
+{
+    numRegions = 0;
+    numCircles++;
+    refreshScene();
+}
+
+void PlaneDisplay::showPrevCircle()
+{
+    if (numCircles == 0) return;
+    numCircles--;
+    refreshScene();
 }
 
 void PlaneDisplay::addCenter(const NPoint &newCenter)
@@ -306,6 +377,32 @@ void PlaneDisplay::setGraphColoring(bool show)
     refreshSceneAndColors();
 }
 
+void PlaneDisplay::setVoronoiOnly(bool show)
+{
+    if (enableVoronoiOnly == show) return;
+    enableVoronoiOnly = show;
+    printScene();
+}
+
+void PlaneDisplay::setVoronoiTree(bool show)
+{
+    if (enableVoronoiTree == show) return;
+    enableVoronoiTree = show;
+    printScene();
+}
+
+void PlaneDisplay::setShowVoronoi(bool show) {
+    if (shouldPrintVoronoi == show) return;
+    shouldPrintVoronoi = show;
+    refreshScene();
+}
+
+void PlaneDisplay::setShowDelaunay(bool show) {
+    if (shouldPrintDelaunay == show) return;
+    shouldPrintDelaunay = show;
+    refreshScene();
+}
+
 void PlaneDisplay::printScene() {
     constrIter = -1;
     updateRegions();
@@ -332,20 +429,32 @@ void PlaneDisplay::refreshScene() {
 
     image.fill(qRgb(255, 255, 240));
     printRegions(plane);
-    printBoundaries();
-    if (n <= 50) printLatticePoints();
-    if (shouldPrintIdealPerimeter) printIdealPerimeters();
-    printCenters();
-    if (shouldPrintCentroids) printCentroids();
-    if (shouldPrintStatistics) printStatistics();
+    if (enableVoronoiOnly) {
+        printBoundaries(plane);
+        if (shouldPrintVoronoi) printVoronoi();
+        printCenters();
+    } else if (enableVoronoiTree){
+        VoronoiTree T;
+        printBoundaries(T.getDiagram(centers, n));
+        printVoronoi(5, true);
+        printCenters(7, 2, true);
+    } else {
+        printBoundaries(plane);
+        if (shouldPrintIdealPerimeter) printIdealPerimeters();
+        printCenters();
+        if (shouldPrintCentroids) printCentroids();
+        if (shouldPrintStatistics) printStatistics();
+        if (shouldPrintVoronoi) printVoronoi();
+        if (shouldPrintDelaunay) printDelaunay();
+    }
     update();
 }
 
 QPoint PlaneDisplay::npoint2QPoint(NPoint p) const {
-    int x = round((p.i.asDouble()/n)*image.size().width());
-    int y = round((p.j.asDouble()/n)*image.size().width());
-    x += cellPixSize()/2;
-    y += cellPixSize()/2;
+    double x = (p.i.asDouble()/n)*image.size().width();
+    double y = (p.j.asDouble()/n)*image.size().width();
+    x += dcellPixSize()/2;
+    y += dcellPixSize()/2;
     return QPoint(x,y);
 }
 
@@ -451,14 +560,15 @@ void PlaneDisplay::printLatticePoints() {
     }
 }
 
-void PlaneDisplay::printCenters() {
+void PlaneDisplay::printCenters(int rad, int thickness, bool white) {
     QPainter painter(&image);
     int k = numCenters();
     for (int i = 0; i < k; i++) {
         QPoint qp = npoint2QPoint(centers[i]);
-        painter.setPen(Qt::black);
+        if (white) painter.setPen(QPen(Qt::white, thickness));
+        else painter.setPen(QPen(Qt::black, thickness));
         painter.setBrush(centerColor(i));
-        painter.drawEllipse(qp, CENTER_RAD, CENTER_RAD);
+        painter.drawEllipse(qp, rad, rad);
     }
 }
 
@@ -471,6 +581,38 @@ void PlaneDisplay::printCentroids() {
         painter.setPen(Qt::white);
         painter.setBrush(centerColor(i));
         painter.drawEllipse(qp, CENTROID_RAD, CENTROID_RAD);
+    }
+}
+
+void PlaneDisplay::printVoronoi(int thickness, bool white) {
+    VoronoiDiagram VD = VoronoiDiagram(centers);
+    QPainter painter(&image);
+    painter.setRenderHint( QPainter::Antialiasing );
+    if (white) painter.setPen(QPen(Qt::white, thickness));
+    else painter.setPen(QPen(Qt::black, thickness));
+    for (int i = 0; i < VD.numVoronoiEdges(); i++) {
+        NPoint start = VD.voronoiEdges[i].start;
+        NPoint end = VD.voronoiEdges[i].end;
+        QPointF qstart = npoint2QPointf(start);
+        QPointF qend = npoint2QPointf(end);
+        painter.drawLine(qstart, qend);
+    }
+}
+
+void PlaneDisplay::printDelaunay() {
+    VoronoiDiagram VD = VoronoiDiagram(centers);
+    QPainter painter(&image);
+    painter.setRenderHint( QPainter::Antialiasing );
+    painter.setPen(QPen(Qt::blue, 4));
+    bool printDelaunay = false;
+    if (printDelaunay) {
+        for (int i = 0; i < VD.numDelaunayEdges(); i++) {
+            NPoint start = VD.delaunayEdges[i].start;
+            NPoint end = VD.delaunayEdges[i].end;
+            QPointF qstart = npoint2QPointf(start);
+            QPointF qend = npoint2QPointf(end);
+            painter.drawLine(qstart, qend);
+        }
     }
 }
 
@@ -487,7 +629,7 @@ double PlaneDisplay::areaToSquareDiag(double area) {
 void PlaneDisplay::printIdealPerimeters() {
     QPainter painter(&image);
     int k = numCenters();
-    vector<int> quotas = Matching::centerQuotas(n, k);
+    vector<int> quotas = Matching::centerQuotas(n, k, appetite);
     for (int cId = 0; cId < k; cId++) {
         NPoint c = centers[cId];
         QPoint qc = npoint2QPoint(c);
@@ -535,12 +677,30 @@ void PlaneDisplay::printIdealPerimeters() {
 
 void PlaneDisplay::printRegions(const vector<vector<int>>& currPlane)
 {
+    vector<int> cRanks;
+    vector<Circle> circlesMask(0);
+    if (numRegions != 0) {
+        vector<double> radis = maxDistsPointCenter(currPlane, centers, getMetric());
+        cRanks = indexRanks(radis);
+    }
+    if (numCircles != 0) {
+        vector<double> radis = maxDistsPointCenter(currPlane, centers, getMetric());
+        cRanks = indexRanks(radis);
+        int k = centers.size();
+        for (int i = 0; i < k; i++) {
+            if (cRanks[i] < numCircles) {
+                circlesMask.push_back(Circle(centers[i], radis[i]));
+            }
+        }
+    }
     QPainter painter(&image);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            QPoint qp = npoint2QPoint(NPoint(i,j));
             int cId = currPlane[i][j];
-            if (cId == -1) {
+            if (cId == -1 ||
+                (numRegions > 0 && cRanks[cId] >= numCircles) ||
+                (numCircles > 0 && !insideOneOf(NPoint(i,j), circlesMask, getMetric()))) {
+
                 painter.setPen(EMPTY_COLOR);
                 painter.setBrush(EMPTY_COLOR);
             } else {
@@ -548,13 +708,15 @@ void PlaneDisplay::printRegions(const vector<vector<int>>& currPlane)
                 painter.setBrush(centerColor(cId));
             }
             int r = cellPixSize();
+            QPoint qp = npoint2QPoint(NPoint(i,j));
             painter.drawRect(qp.x() - r/2, qp.y() - r/2, r, r);
         }
     }
 }
 
-void PlaneDisplay::printBoundaries() {
+void PlaneDisplay::printBoundaries(const vector<vector<int>>& plane) {
     QPainter painter(&image);
+    painter.setRenderHint( QPainter::Antialiasing );
     painter.setPen(BOUNDARY_COLOR);
     painter.setBrush(BOUNDARY_COLOR);
     double r = dcellPixSize();
@@ -574,6 +736,8 @@ void PlaneDisplay::printBoundaries() {
         }
     }
 }
+
+
 
 void PlaneDisplay::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
@@ -620,7 +784,6 @@ void PlaneDisplay::resizeEvent(QResizeEvent *event) {
 }
 
 
-
 ////////////////// GRAPH COLORING ////////////////////
 
 int PlaneDisplay::leastUsedColor(const vector<int>& usages, const vector<bool>& allowedColors) {
@@ -639,11 +802,13 @@ vector<unordered_set<int>> PlaneDisplay::findNeighborRegions() const {
     vector<unordered_set<int>> res(k);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            if (j < n-1 && plane[i][j] != plane[i][j+1]) {
+            if (j < n-1 && plane[i][j] != plane[i][j+1] &&
+                           plane[i][j] != -1 && plane[i][j+1] != -1) {
                 res[plane[i][j]].insert(plane[i][j+1]);
                 res[plane[i][j+1]].insert(plane[i][j]);
             }
-            if (i < n-1 && plane[i][j] != plane[i+1][j]) {
+            if (i < n-1 && plane[i][j] != plane[i+1][j] &&
+                           plane[i][j] != -1 && plane[i+1][j] != -1) {
                 res[plane[i][j]].insert(plane[i+1][j]);
                 res[plane[i+1][j]].insert(plane[i][j]);
             }

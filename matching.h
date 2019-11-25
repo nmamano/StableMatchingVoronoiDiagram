@@ -12,16 +12,17 @@ public:
     vector<vector<int>> plane;
     vector<int> quotas;
 
-    Matching(int n, int k);
+    Matching(const vector<vector<int>>& plane, const vector<int>& quotas);
+    Matching(int n, int k, int appetite);
     Matching(const Matching& M);
 
     int k() const { return quotas.size(); }
     int n() const { return plane.size(); }
 
     vector<int> centerQuotas() {
-        return centerQuotas(n(), k());
+        return centerQuotas(n(), k(), 0);
     }
-    static vector<int> centerQuotas(int n, int k);
+    static vector<int> centerQuotas(int n, int k, int appetite);
 
     vector<int> remainingCIds() const;
 
@@ -40,6 +41,7 @@ public:
     }
     static int numAssignedPoints(const vector<vector<int> > &plane);
 
+    int numUmatchedSites() const;
 };
 
 #endif // MATCHING_H

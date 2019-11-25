@@ -18,8 +18,8 @@ public:
     void setMetric(Metric newMetric);
     Metric getMetric() {return metric;}
 
-    vector<vector<int>> combinedApproachReal(const vector<DPoint> &centers) const;
-    vector<vector<int>> combinedApproachInt(const vector<Point>  &centers) const;
+    vector<vector<int>> combinedApproachReal(const vector<DPoint> &centers, int appetite) const;
+    vector<vector<int>> combinedApproachInt(const vector<Point>  &centers, int appetite) const;
 
     void solveInt(const vector<Point> &centers, Matching &M, double cutoff, int &PIndex) const;
 

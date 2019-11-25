@@ -16,16 +16,19 @@ class PlaneDisplay : public QWidget
 {
     Q_OBJECT
 public:
-    PlaneDisplay(int n = 50, int k = 10, QWidget *parent = 0);
+    PlaneDisplay(int n = 900, int k = 3, int appetite = 10000, QWidget *parent = 0);
 
     //logic
     void setGridSize(int newN);
     int getGridSize() const { return n; }
     int numPoints() const { return n*n; }
 
+    int getAppetite() { return appetite; }
+    void setAppetite(int newApt);
+
     void setRealCenters(bool useRealCenters);
     bool usingRealCenters() const { return real; }
-    void setRandomCenters(int newNumCenters);
+    void setRandomCenters(int k, bool update = true);
     void addCenter(const NPoint &newCenter);
     void removeCenter(int cId);
     int numCenters() const { return centers.size(); }
@@ -46,8 +49,15 @@ public:
     void setShowStatistics(bool show);
     void setShowIdealPerimeter(bool show);
     void setGraphColoring(bool show);
+    void setVoronoiOnly(bool show);
+    void setVoronoiTree(bool show);
+    void setShowVoronoi(bool show);
+    void setShowDelaunay(bool show);
 
     void showConstrStep();
+    void showNextRegion();
+    void showNextCircle();    
+    void showPrevCircle();
 
 protected:
 
@@ -60,6 +70,7 @@ protected:
 private:
     //logic
     int n;
+    int appetite;
     vector<vector<int>> plane;
     CircleGrower matcher;
     void updateRegions();
@@ -94,7 +105,6 @@ private:
     vector<unordered_set<int> > findNeighborRegions() const;
     static int leastUsedColor(const vector<int> &usages, const vector<bool> &allowedColors);
 
-
     const int CENTER_RAD = 5;
     const int CENTROID_RAD = 3;
     const int POINT_RAD = 1;
@@ -108,8 +118,8 @@ private:
     void refreshScene();
 
     void printLatticePoints();
-    void printCenters();
-    void printBoundaries();
+    void printCenters(int rad = 5, int thickness = 1, bool white = false);
+    void printBoundaries(const vector<vector<int> > &plane);
 
     void printRegions(const vector<vector<int> > &currPlane);
 
@@ -132,11 +142,25 @@ private:
     vector<vector<int>> constrPlane;
     int constrIter;
 
+    int numRegions;
+    int numCircles;
+
     QPoint npoint2QPoint(NPoint p) const;
     QPointF npoint2QPointf(NPoint p) const;
+
     NPoint qpointToNPoint(QPoint qp, bool realPoint) const;
     int cellPixSize() const;
     double dcellPixSize() const;
+
+    bool shouldPrintVoronoi;
+    bool shouldPrintDelaunay;
+    void printVoronoi(int thickness = 4, bool white = false);
+    void printDelaunay();
+
+    bool enableVoronoiOnly;
+    bool enableVoronoiTree;
+    void getVoronoiRegions();
+
 
     //mouse
     bool mouseMoving;
@@ -145,7 +169,6 @@ private:
 
     int selectedCenter(QPoint qp);
     int selectedCId;
-
 
 };
 

@@ -97,7 +97,7 @@ void Benchmarker::cutoffExperiment(bool real, Num metr, bool checkStable) {
                 vector<DPoint> realCenters;
                 if (real) realCenters = doublePoints(randomCenters(n, k, true));
                 else intCenters = intPoints(randomCenters(n, k, false));
-                Matching M(n, k);
+                Matching M(n, k, 0);
                 int PIndex = 0;
                 clock_t circleGrower1 = clock();
                 if (real) circleGrower.solveReal(realCenters, M, cutoff, PIndex);
@@ -149,7 +149,7 @@ void Benchmarker::profileExperiment(bool real, Num metr, bool checkStable) {
             vector<DPoint> realCenters;
             if (real) realCenters = doublePoints(randomCenters(n, k, true));
             else intCenters = intPoints(randomCenters(n, k, false));
-            Matching M(n, k);
+            Matching M(n, k, 0);
             int PIndex = 0;
             clock_t circleGrower1 = clock();
             CircleGrower circleGrower(n, metric);
@@ -202,7 +202,7 @@ void Benchmarker::centroidExperiment(bool real, Num metr, bool checkStable) {
             if (real) {
                 vector<DPoint> realCenters = doublePoints(randomCenters(n, k, true));
                 int PIndex = 0;
-                Matching M(n, k);
+                Matching M(n, k, 0);
                 CG.solveReal(realCenters, M, cutoff, PIndex);
                 PHLL.solveReal(realCenters, M);
                 if (checkStable) {
@@ -216,7 +216,7 @@ void Benchmarker::centroidExperiment(bool real, Num metr, bool checkStable) {
             } else {
                 vector<Point> intCenters = intPoints(randomCenters(n, k, false));
                 int PIndex = 0;
-                Matching M(n, k);
+                Matching M(n, k, 0);
                 CG.solveInt(intCenters, M, cutoff, PIndex);
                 PHLL.solveInt(intCenters, M);
                 if (checkStable) {
@@ -241,13 +241,13 @@ void Benchmarker::centroidExperiment(bool real, Num metr, bool checkStable) {
             if (real) {
                 vector<DPoint> realCenters = doublePoints(randomCenters(n, k, true));
                 int PIndex = 0;
-                Matching M(n, k);
+                Matching M(n, k, 0);
                 CG.solveReal(realCenters, M, cutoff, PIndex);
                 PHLL.solveReal(realCenters, M);
                 for (int iter = 0; iter < KMeansIter; iter++) {
                     realCenters = doublePoints(weightedCentroids(M.plane, numPoints(realCenters), metric, p, true));
                     PIndex = 0;
-                    M = Matching(n, k);
+                    M = Matching(n, k, 0);
                     CG.solveReal(realCenters, M, cutoff, PIndex);
                     PHLL.solveReal(realCenters, M);
                 }
@@ -262,13 +262,13 @@ void Benchmarker::centroidExperiment(bool real, Num metr, bool checkStable) {
             } else {
                 vector<Point> intCenters = intPoints(randomCenters(n, k, false));
                 int PIndex = 0;
-                Matching M(n, k);
+                Matching M(n, k, 0);
                 CG.solveInt(intCenters, M, cutoff, PIndex);
                 PHLL.solveInt(intCenters, M);
                 for (int iter = 0; iter < KMeansIter; iter++) {
                     intCenters = intPoints(weightedCentroids(M.plane, numPoints(intCenters), metric, p, false));
                     PIndex = 0;
-                    M = Matching(n, k);
+                    M = Matching(n, k, 0);
                     CG.solveInt(intCenters, M, cutoff, PIndex);
                     PHLL.solveInt(intCenters, M);
                 }
@@ -318,7 +318,7 @@ void Benchmarker::runtimeExperiment(bool real, Num metr, bool checkStable) {
                 if (real) realCenters = doublePoints(randomCenters(n, k, true));
                 else intCenters = intPoints(randomCenters(n, k, false));
                 int PIndex = 0;
-                Matching M(n, k);
+                Matching M(n, k, 0);
                 clock_t clock1 = clock();
                 CircleGrower circleGrower(n, metric);
                 if (real) circleGrower.solveReal(realCenters, M, 0, PIndex);
@@ -347,7 +347,7 @@ void Benchmarker::runtimeExperiment(bool real, Num metr, bool checkStable) {
                 if (real) realCenters = doublePoints(randomCenters(n, k, true));
                 else intCenters = intPoints(randomCenters(n, k, false));
                 int PIndex = 0;
-                Matching M(n, k);
+                Matching M(n, k, 0);
                 clock_t clock1 = clock();
                 CircleGrower circleGrower(n, metric);
                 if (real) circleGrower.solveReal(realCenters, M, cutoff, PIndex);
@@ -380,7 +380,7 @@ void Benchmarker::individualRunInt(int n, const CircleGrower& circleGrower, cons
         const Metric& metric, const vector<Point>& centers, double cutoff) {
 
 
-    Matching M(n, centers.size());
+    Matching M(n, centers.size(), 0);
     int PIndex = 0;
     clock_t beginCG = clock();
     circleGrower.solveInt(centers, M, cutoff, PIndex);
@@ -431,7 +431,7 @@ void Benchmarker::individualRunInt(int n, const CircleGrower& circleGrower, cons
 void Benchmarker::individualRunReal(int n, const CircleGrower& circleGrower, const vector<BiGreedyMatcher*>& bimatchers,
         const Metric& metric, const vector<DPoint>& centers, double cutoff) {
 
-    Matching M(n, centers.size());
+    Matching M(n, centers.size(), 0);
     int PIndex = 0;
     clock_t beginCG = clock();
     circleGrower.solveReal(centers, M, cutoff, PIndex);

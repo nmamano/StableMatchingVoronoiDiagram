@@ -30,12 +30,13 @@ void PairHeap::solve(Matching& M) const {
     DelSet remCIds(M.remainingCIds());
     if (remCIds.size() == 0) return;
     DelSet remSIds;
-    int numSites = M.numRemSites();
+    int numSites = M.numUmatchedSites();
+    int finalNumFreeSites = numSites-M.numRemSites();
     if (!lazy) remSIds = DelSet(numSites);
 
     vector<SiteStruct> sites = initSites(remCIds.elems, M);
     min_heap<IdRealDist> Q = initHeap(sites);
-    while (!Q.empty()) {
+    while ((int) Q.size() > finalNumFreeSites) {
         int sId = Q.top().id;
         Q.pop();
         int cId = sites[sId].neighbor;
