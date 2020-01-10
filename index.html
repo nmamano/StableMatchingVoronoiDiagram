@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stable-matching Voronoi diagram</title>
+    <meta charset="utf-8">
+    <meta name="author" content="Nil Mamano">
+    <meta name="description" content="SMVD visualization">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        .btn {
+            display: flex;
+            margin: 0.5rem 1rem 0.5rem 0.5rem;
+            align-content: center;
+            justify-content: flex-start;
+        }
+        .btn textarea {
+            margin: 0rem 0.5rem;
+        }
+        .btn input {
+            margin-left: 0.8rem;
+        }
+        #maintext {
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+
+
+<body>
+    <h1>Stable-matching Voronoi Diagram</h1>
+    <div>
+<canvas tabindex='1' id="canvas1" width="420" height="420">
+    Your browser does not support HTML5 canvas.
+</canvas>
+</div>
+<div class="btn">
+    <label>Number of sites:</label>
+    <textarea style="resize:none" rows="1" cols="10" autofocus maxlength="4" id="numsitesfield"></textarea>
+    <button type="button" onclick="setNumSites()">Place randomly</button>
+</div>
+<div class="btn">
+    <label>Site appetite:</label>
+    <textarea style="resize:none" rows="1" cols="10" autofocus maxlength="4" id="appetitefield"></textarea>
+    <button type="button" onclick="setAppetite()">Set new appetite</button>
+</div>
+<div class="btn">
+    <label>Metric:</label>
+    <input type="radio" id="euclidean" name="euclidean" onclick="setMetric(name)"> Euclidean
+    <input type="radio" id="manhattan" name="manhattan" onclick="setMetric(name)" > Manhattan
+    <input type="radio" id="chess" name="chess" onclick="setMetric(name)" > Chess
+</div>
+<div id="maintext">
+    <h3>Usage</h3>
+    <p>Click on a site (the little black circle) to select it. A selected site can be dragged or deleted by pressing the back or DEL keys. Create new sites or delete existing sites with double click.</p>
+    <p>The square has a total area of 100 appetite units. If the number of sites times the appetite is larger than 100, not all sites will be satisfied.</p>
+    <h3>About</h3>
+    <p>This tool allows to visualize stable-matching Voronoi diagrams. It is made to complement the paper <q>Stable-matching Voronoi Diagram: Combinatorial Complexity and Algorithms.</q> However, this website does not use the algorithm from the paper. Instead, it uses a simpler algorithm for a pixelated plane rather than a continuous plane. Developed by <a href="nmamano.com">Nil Mamano</a>.</p>
+</div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="smvdcanvas.js"></script>
+</body>
+</html>
